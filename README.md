@@ -79,9 +79,7 @@ All configuration is via environment variables.
 | Variable | Default | Description |
 |---|---|---|
 | `AUTOREF_SOCKET` | `/tmp/milter-autoref.sock` | pymilter address string. Unix path, `inet:port@host`, or `inet6:port@host`. |
-| `AUTOREF_OUTGOING_DAEMONS` | `ORIGINATING` | Comma-separated `{daemon_name}` values that identify outgoing mail. |
-| `AUTOREF_TRUST_AUTH` | `true` | Treat SASL-authenticated connections as outgoing (`{auth_type}` or `{auth_authen}` is set). |
-| `AUTOREF_INTERNAL_HOSTS` | *(empty)* | Comma-separated CIDRs. Clients in these ranges are treated as outgoing. |
+| `AUTOREF_AUTH_ONLY` | `true` | Only rewrite messages that authenticated via SASL (`{auth_type}` or `{auth_authen}` set). Set to `false` if you've scoped the milter to outbound-only traffic via `master.cf`. |
 | `AUTOREF_DRY_RUN` | `false` | Log intended header changes without applying them. |
 | `AUTOREF_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, or `ERROR`. |
 | `AUTOREF_TIMEOUT` | `600` | Milter timeout in seconds. |
@@ -92,20 +90,17 @@ Boolean values accept: `1/true/yes/on` or `0/false/no/off` (case-insensitive).
 
 ```
 AUTOREF_SOCKET=/tmp/milter-autoref.sock
-AUTOREF_OUTGOING_DAEMONS=ORIGINATING
-AUTOREF_INTERNAL_HOSTS=172.16.0.0/12, 127.0.0.1/32
-AUTOREF_TRUST_AUTH=true
+AUTOREF_AUTH_ONLY=true
 AUTOREF_LOG_LEVEL=INFO
 ```
 
 ## Postfix configuration
 
-### Outgoing-mail detection
+### Recommended: scope the milter to the submission service
 
-The key to distinguishing outgoing from incoming mail is the `{daemon_name}`
-macro, which Postfix sets per-service in `master.cf`.
-
-Add `-o milter_macro_daemon_name=ORIGINATING` to your submission service in
+The simplest deployment pattern — and the one Postfix's own
+`SMTPD_MILTER_README` recommends — is to attach the milter only to the
+submission service via a per-service `-o smtpd_milters=` override in
 `/etc/postfix/master.cf`:
 
 ```
@@ -114,33 +109,39 @@ submission inet n       -       n       -       -       smtpd
   -o syslog_name=postfix/submission
   -o smtpd_tls_security_level=encrypt
   -o smtpd_sasl_auth_enable=yes
-  -o milter_macro_daemon_name=ORIGINATING
   -o smtpd_milters=unix:/tmp/milter-autoref.sock
 ```
 
-If you also want `AUTOREF_INTERNAL_HOSTS` to work (for clients that bypass
-SASL auth via IP allowlist), enable the `{client_addr}` macro:
+Ensure the SASL auth macros are exported to milters so the default
+`AUTOREF_AUTH_ONLY=true` can see them:
 
 ```
 # /etc/postfix/main.cf
-milter_connect_macros = j {daemon_name} {client_addr}
 milter_mail_macros = i {auth_type} {auth_authen} {mail_addr}
 ```
 
-### Applying to outgoing mail only
+### Alternative: wire globally with the default auth-only gate
 
-Use `smtpd_milters` on the submission service (as above) rather than
-`non_smtpd_milters` or a global `smtpd_milters`. This restricts the milter
-to authenticated/submission traffic and avoids running it on inbound relayed
-mail.
-
-If you want the milter on all SMTP paths and rely solely on macro-based
-detection, add it to `main.cf`:
+If you prefer to add the milter once in `main.cf` and let it see all SMTP
+paths, the `AUTOREF_AUTH_ONLY=true` default keeps you safe: unauthenticated
+inbound MX traffic passes through untouched because `{auth_type}` and
+`{auth_authen}` are only set after a successful SASL AUTH.
 
 ```
+# /etc/postfix/main.cf
 smtpd_milters = unix:/tmp/milter-autoref.sock
 milter_default_action = accept
+milter_mail_macros = i {auth_type} {auth_authen} {mail_addr}
 ```
+
+### When to set `AUTOREF_AUTH_ONLY=false`
+
+Disable the auth gate only when you've already restricted the milter to
+outbound-only traffic at the MTA layer — for example, when your submission
+service relies on IP allowlisting (`permit_mynetworks`) rather than SASL,
+and some legitimate outgoing messages arrive without auth macros set. In
+that case, scope the milter per-service in `master.cf` and set
+`AUTOREF_AUTH_ONLY=false`.
 
 ### Caveats
 
@@ -150,11 +151,6 @@ milter_default_action = accept
   milter-autoref will log an INFO message and skip the modification - that's
   correct behaviour, since threading is only affected on messages where the
   relay rewrote a `Message-ID` that the client originally set.
-
-- **Fail-closed detection.** If none of the configured outgoing signals match
-  (daemon name, auth macros, internal hosts), the milter will not modify the
-  message. This is intentional: a false positive on an incoming message would
-  wrongly modify someone else's `References` header.
 
 ## Planned improvements
 

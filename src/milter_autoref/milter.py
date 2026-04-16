@@ -44,19 +44,15 @@ class AutorefMilter(Milter.Base):
     @Milter.noreply
     def envfrom(self, mailfrom, *esmtp):
         self._outgoing = is_outgoing(
-            self.getsymval("{daemon_name}"),
             self.getsymval("{auth_type}"),
             self.getsymval("{auth_authen}"),
-            self.getsymval("{client_addr}"),
             self._cfg,
         )
         self._log.debug(
-            "envfrom: from=%s outgoing=%s daemon_name=%r auth_type=%r client_addr=%r",
+            "envfrom: from=%s outgoing=%s auth_type=%r",
             mailfrom,
             self._outgoing,
-            self.getsymval("{daemon_name}"),
             self.getsymval("{auth_type}"),
-            self.getsymval("{client_addr}"),
         )
         return Milter.CONTINUE
 

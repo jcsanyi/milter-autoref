@@ -6,10 +6,9 @@ real pymilter socket or libmilter is needed.
 """
 
 import logging
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock
 
 import Milter
-import pytest
 
 from milter_autoref.config import Config
 from milter_autoref.milter import AutorefMilter
@@ -18,9 +17,7 @@ from milter_autoref.milter import AutorefMilter
 def _make_config(**overrides) -> Config:
     defaults = dict(
         socket="/tmp/test.sock",
-        outgoing_daemons=frozenset({"ORIGINATING"}),
-        trust_auth=True,
-        internal_hosts=(),
+        auth_only=True,
         dry_run=False,
         log_level=logging.DEBUG,
         timeout=600,
@@ -72,7 +69,7 @@ def _drive(milter, headers, macros=None):
 # Outgoing message scenarios
 # ---------------------------------------------------------------------------
 
-OUTGOING_MACROS = {"{daemon_name}": "ORIGINATING"}
+OUTGOING_MACROS = {"{auth_type}": "PLAIN", "{auth_authen}": "user@example.com"}
 
 
 class TestOutgoingNoReferences:
@@ -204,12 +201,12 @@ class TestCaseInsensitiveHeaderNames:
 # Incoming message scenarios
 # ---------------------------------------------------------------------------
 
-INCOMING_MACROS = {}  # no daemon_name, no auth
+INCOMING_MACROS = {}  # no auth macros
 
 
 class TestIncomingMessage:
-    def test_no_mutation_for_incoming(self):
-        m = _make_milter(config=_make_config(trust_auth=False))
+    def test_no_mutation_for_unauthenticated(self):
+        m = _make_milter()
         _drive(
             m,
             [
@@ -223,8 +220,21 @@ class TestIncomingMessage:
 
 
 # ---------------------------------------------------------------------------
+# auth_only=false escape hatch
+# ---------------------------------------------------------------------------
+
+
+class TestAuthOnlyFalse:
+    def test_unauthenticated_rewritten_when_auth_only_false(self):
+        m = _make_milter(config=_make_config(auth_only=False))
+        _drive(m, [("Message-ID", "<orig@example.com>")], macros=INCOMING_MACROS)
+        m.addheader.assert_called_once_with("References", "<orig@example.com>")
+
+
+# ---------------------------------------------------------------------------
 # Dry-run mode
 # ---------------------------------------------------------------------------
+
 
 class TestDryRun:
     def test_no_mutation_in_dry_run(self):
@@ -244,6 +254,7 @@ class TestDryRun:
 # ---------------------------------------------------------------------------
 # State reset between messages on one connection
 # ---------------------------------------------------------------------------
+
 
 class TestAbortResetsState:
     def test_abort_resets_state(self):
@@ -267,20 +278,3 @@ class TestAbortResetsState:
 
         m.addheader.assert_called_once_with("References", "<second@example.com>")
         m.chgheader.assert_not_called()
-
-
-# ---------------------------------------------------------------------------
-# Internal hosts detection
-# ---------------------------------------------------------------------------
-
-class TestInternalHostsDetection:
-    def test_client_addr_in_internal_hosts_triggers_outgoing(self):
-        from ipaddress import ip_network
-        cfg = _make_config(
-            trust_auth=False,
-            internal_hosts=(ip_network("172.16.0.0/12"),),
-        )
-        m = _make_milter(config=cfg)
-        macros = {"{client_addr}": "172.17.0.5"}  # no daemon_name, no auth
-        _drive(m, [("Message-ID", "<orig@example.com>")], macros=macros)
-        m.addheader.assert_called_once_with("References", "<orig@example.com>")

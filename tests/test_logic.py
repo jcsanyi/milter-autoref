@@ -6,20 +6,16 @@ from milter_autoref.config import Config
 from milter_autoref.logic import (
     _FOLD_LINE_WIDTH,
     _REFERENCES_HEADER_PREFIX_LEN,
-    _ip_in_any,
     compute_new_references,
     extract_message_id_token,
     is_outgoing,
 )
-from ipaddress import ip_network
 
 
 def _make_cfg(**overrides) -> Config:
     base = dict(
         socket="/tmp/test.sock",
-        outgoing_daemons=frozenset({"ORIGINATING"}),
-        trust_auth=True,
-        internal_hosts=(),
+        auth_only=True,
         dry_run=False,
         log_level=20,
         timeout=600,
@@ -152,68 +148,25 @@ class TestComputeNewReferences:
 
 
 class TestIsOutgoing:
-    def test_daemon_name_match_returns_true(self):
-        assert is_outgoing("ORIGINATING", None, None, None, _make_cfg())
+    def test_auth_type_present_returns_true(self):
+        assert is_outgoing("PLAIN", None, _make_cfg())
 
-    def test_daemon_name_mismatch_returns_false(self):
-        assert not is_outgoing("INBOUND", None, None, None, _make_cfg())
+    def test_auth_authen_present_returns_true(self):
+        assert is_outgoing(None, "user@example.com", _make_cfg())
 
-    def test_daemon_name_none_returns_false_without_other_signals(self):
-        assert not is_outgoing(None, None, None, None, _make_cfg())
+    def test_both_auth_macros_present_returns_true(self):
+        assert is_outgoing("PLAIN", "user@example.com", _make_cfg())
 
-    def test_auth_type_present_trust_auth_true_returns_true(self):
-        assert is_outgoing(None, "PLAIN", None, None, _make_cfg())
+    def test_no_auth_with_auth_only_true_returns_false(self):
+        assert not is_outgoing(None, None, _make_cfg())
 
-    def test_auth_authen_present_trust_auth_true_returns_true(self):
-        assert is_outgoing(None, None, "user@example.com", None, _make_cfg())
+    def test_empty_auth_strings_with_auth_only_true_returns_false(self):
+        assert not is_outgoing("", "", _make_cfg())
 
-    def test_auth_present_trust_auth_false_returns_false(self):
-        cfg = _make_cfg(trust_auth=False)
-        assert not is_outgoing(None, "PLAIN", "user@example.com", None, cfg)
+    def test_auth_only_false_returns_true_without_auth(self):
+        cfg = _make_cfg(auth_only=False)
+        assert is_outgoing(None, None, cfg)
 
-    def test_all_signals_absent_returns_false(self):
-        assert not is_outgoing(None, None, None, None, _make_cfg())
-
-    def test_client_addr_in_cidr_returns_true(self):
-        cfg = _make_cfg(internal_hosts=(ip_network("172.16.0.0/12"),))
-        assert is_outgoing(None, None, None, "172.17.0.5", cfg)
-
-    def test_client_addr_not_in_cidr_returns_false(self):
-        cfg = _make_cfg(internal_hosts=(ip_network("172.16.0.0/12"),), trust_auth=False)
-        assert not is_outgoing(None, None, None, "10.0.0.1", cfg)
-
-    def test_client_addr_ipv6_in_cidr_returns_true(self):
-        cfg = _make_cfg(internal_hosts=(ip_network("fc00::/7"),))
-        assert is_outgoing(None, None, None, "fc00::1", cfg)
-
-    def test_client_addr_with_ipv6_prefix_stripped(self):
-        cfg = _make_cfg(internal_hosts=(ip_network("172.16.0.0/12"),))
-        assert is_outgoing(None, None, None, "IPv6:172.17.0.5", cfg)
-
-    def test_client_addr_parse_failure_returns_false(self):
-        cfg = _make_cfg(internal_hosts=(ip_network("172.16.0.0/12"),), trust_auth=False)
-        assert not is_outgoing(None, None, None, "not-an-ip", cfg)
-
-    def test_localhost_in_internal_hosts(self):
-        cfg = _make_cfg(internal_hosts=(ip_network("127.0.0.1/32"),))
-        assert is_outgoing(None, None, None, "127.0.0.1", cfg)
-
-    def test_custom_outgoing_daemon_names(self):
-        cfg = _make_cfg(outgoing_daemons=frozenset({"SUBMISSION", "RELAY"}))
-        assert is_outgoing("SUBMISSION", None, None, None, cfg)
-        assert is_outgoing("RELAY", None, None, None, cfg)
-        assert not is_outgoing("ORIGINATING", None, None, None, cfg)
-
-
-# ---------------------------------------------------------------------------
-# _ip_in_any (edge cases)
-# ---------------------------------------------------------------------------
-
-
-class TestIpInAny:
-    def test_empty_networks_returns_false(self):
-        assert not _ip_in_any("127.0.0.1", ())
-
-    def test_ipv4_ipv6_mismatch_does_not_crash(self):
-        # IPv4 address against IPv6 network — should return False, not raise
-        assert not _ip_in_any("192.168.1.1", (ip_network("fc00::/7"),))
+    def test_auth_only_false_returns_true_with_auth(self):
+        cfg = _make_cfg(auth_only=False)
+        assert is_outgoing("PLAIN", "user@example.com", cfg)
