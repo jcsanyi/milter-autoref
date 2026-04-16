@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "milter-autoref"
+version = "0.1.0"
+description = "Postfix milter that appends Message-ID to References to fix email threading through AWS SES"
+authors = [{name = "Jonathan Csanyi", email = "jcsanyi@gmail.com"}]
+license = {file = "LICENSE"}
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["pymilter>=1.0.5"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "pytest-cov"]
+
+[project.scripts]
+milter-autoref = "milter_autoref.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--import-mode=importlib"]
