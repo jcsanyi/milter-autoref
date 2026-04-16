@@ -6,10 +6,14 @@ This file provides guidance to AI coding agents working in this repository.
 
 Do not add AI agent attribution to commits (no `Co-Authored-By` lines). The user owns all code in this repository.
 
+Do not commit changes automatically after making them. Wait until the user explicitly asks to commit.
+
 ## Commands
 
 ```bash
 # Install with dev dependencies (requires libmilter C library to be installed first)
+python -m venv .venv
+source .venv/bin/activate
 pip install -e '.[dev]'
 
 # Run all tests

@@ -60,7 +60,7 @@ class Config:
     @classmethod
     def from_env(cls) -> "Config":
         """Build a Config from environment variables, applying defaults."""
-        socket = os.environ.get("AUTOREF_SOCKET", "/var/run/milter-autoref/sock")
+        socket = os.environ.get("AUTOREF_SOCKET", "/tmp/milter-autoref.sock")
 
         raw_daemons = os.environ.get("AUTOREF_OUTGOING_DAEMONS", "ORIGINATING")
         outgoing_daemons = frozenset(

@@ -5,26 +5,24 @@ header, fixing email threading broken by mail relays that rewrite the
 `Message-ID` header (such as AWS SES).
 
 **au·to** /ˈɔː.toʊ/ *prefix*
-1. **self** — referring to oneself
-2. **automatic** — it happens without any manual intervention
+1. **self** - referring to oneself
+2. **automatic** - happening without any manual intervention
 
-The name captures both: milter-autoref *automatically* adds a *self-reference*
+The `autoref` name captures both: this milter *automatically* adds a *self-reference*
 to every outgoing message before it leaves Postfix.
 
-## The problem
+## The problem this solves
 
-Some mail relays (such as AWS SES) rewrite the `Message-ID` header on every
+Some mail relays rewrite the `Message-ID` header on every
 message they handle. When a recipient replies, their mail client puts the
-relay's rewritten ID in `In-Reply-To` and `References` — but your Sent folder
-has the original ID. Your client can't match them, so the first reply to a
-thread appears unthreaded.
+relay's rewritten ID in `In-Reply-To` and `References` - but your mail client
+only knows about the original ID. It can't match anything in the `References`
+header to an existing message, so the first reply appears unthreaded.
 
-## The fix
-
-Before the message leaves Postfix, append the current `Message-ID` to
-`References`. The recipient's reply will then include both the original and
-rewritten IDs in `References`. Your client finds the original and threads
-correctly.
+Before the message leaves Postfix, this milter will append the current `Message-ID`
+to the `References` header. The recipient's reply will then include both the original and
+rewritten IDs in `References`, allowing your client to find the original and  thread the
+reply correctly.
 
 ## Requirements
 
@@ -35,17 +33,21 @@ correctly.
 
 ## Installation
 
-```
-pip install milter-autoref
-```
+First, install the `libmilter` system library using your OS package manager
+(see Requirements above). This is needed to build `pymilter` and cannot be
+handled by pip.
 
-Or from source:
+Then install from source using `pipx`, which handles the Python environment
+automatically and adds `milter-autoref` to your PATH:
 
 ```
 git clone https://github.com/jcsanyi/milter-autoref
 cd milter-autoref
-pip install .
+pipx install .
 ```
+
+If you don't have `pipx`, install it with your OS package manager
+(`python-pipx` on Arch, `pipx` on Debian/Ubuntu) or via `pip install pipx`.
 
 ## Running
 
@@ -60,7 +62,7 @@ python -m milter_autoref
 ```
 
 The milter listens on `AUTOREF_SOCKET` (default:
-`/var/run/milter-autoref/sock`) and blocks until it receives SIGTERM or
+`/tmp/milter-autoref.sock`) and blocks until it receives SIGTERM or
 SIGINT.
 
 For a first deployment, start with dry-run mode to verify the intended header
@@ -76,7 +78,7 @@ All configuration is via environment variables.
 
 | Variable | Default | Description |
 |---|---|---|
-| `AUTOREF_SOCKET` | `/var/run/milter-autoref/sock` | pymilter address string. Unix path, `inet:port@host`, or `inet6:port@host`. |
+| `AUTOREF_SOCKET` | `/tmp/milter-autoref.sock` | pymilter address string. Unix path, `inet:port@host`, or `inet6:port@host`. |
 | `AUTOREF_OUTGOING_DAEMONS` | `ORIGINATING` | Comma-separated `{daemon_name}` values that identify outgoing mail. |
 | `AUTOREF_TRUST_AUTH` | `true` | Treat SASL-authenticated connections as outgoing (`{auth_type}` or `{auth_authen}` is set). |
 | `AUTOREF_INTERNAL_HOSTS` | *(empty)* | Comma-separated CIDRs. Clients in these ranges are treated as outgoing. |
@@ -89,7 +91,7 @@ Boolean values accept: `1/true/yes/on` or `0/false/no/off` (case-insensitive).
 ### Example
 
 ```
-AUTOREF_SOCKET=/var/run/milter-autoref/sock
+AUTOREF_SOCKET=/tmp/milter-autoref.sock
 AUTOREF_OUTGOING_DAEMONS=ORIGINATING
 AUTOREF_INTERNAL_HOSTS=172.16.0.0/12, 127.0.0.1/32
 AUTOREF_TRUST_AUTH=true
@@ -113,7 +115,7 @@ submission inet n       -       n       -       -       smtpd
   -o smtpd_tls_security_level=encrypt
   -o smtpd_sasl_auth_enable=yes
   -o milter_macro_daemon_name=ORIGINATING
-  -o smtpd_milters=unix:/var/run/milter-autoref/sock
+  -o smtpd_milters=unix:/tmp/milter-autoref.sock
 ```
 
 If you also want `AUTOREF_INTERNAL_HOSTS` to work (for clients that bypass
@@ -136,7 +138,7 @@ If you want the milter on all SMTP paths and rely solely on macro-based
 detection, add it to `main.cf`:
 
 ```
-smtpd_milters = unix:/var/run/milter-autoref/sock
+smtpd_milters = unix:/tmp/milter-autoref.sock
 milter_default_action = accept
 ```
 
@@ -145,7 +147,7 @@ milter_default_action = accept
 - **Message-ID must be set by the client.** Postfix's `cleanup(8)` daemon
   adds a `Message-ID` to messages that don't have one, but it does this
   *after* milters run. If your mail client doesn't set a `Message-ID`,
-  milter-autoref will log an INFO message and skip the modification — that's
+  milter-autoref will log an INFO message and skip the modification - that's
   correct behaviour, since threading is only affected on messages where the
   relay rewrote a `Message-ID` that the client originally set.
 
@@ -170,7 +172,7 @@ These are out of scope for v1 but captured here for future reference.
   limit, and some MTAs or clients cap it further. A future
   `AUTOREF_MAX_REFERENCES_BYTES` option would trim the header when it
   exceeds the limit, using a "keep first + last-N tokens" policy to preserve
-  the thread root and the most recent ancestors — the two parts MUAs actually
+  the thread root and the most recent ancestors - the two parts MUAs actually
   use for threading.
 
 - **Proper folded-header handling.** v1 treats the raw `References` value as
@@ -182,6 +184,8 @@ These are out of scope for v1 but captured here for future reference.
 ## Development
 
 ```
+python -m venv .venv
+source .venv/bin/activate
 pip install -e '.[dev]'
 pytest
 ```

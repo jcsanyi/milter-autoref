@@ -6,6 +6,7 @@ Runs via:
 """
 
 import logging
+import os
 import signal
 
 import Milter
@@ -32,6 +33,18 @@ def main() -> int:
 
     signal.signal(signal.SIGTERM, _handle_stop)
     signal.signal(signal.SIGINT, _handle_stop)
+
+    if not cfg.socket.startswith(("inet:", "inet6:")):
+        socket_dir = os.path.dirname(cfg.socket)
+        if socket_dir:
+            try:
+                existed = os.path.isdir(socket_dir)
+                os.makedirs(socket_dir, exist_ok=True)
+                if not existed:
+                    log.debug("created socket directory %s", socket_dir)
+            except OSError as exc:
+                log.error("cannot create socket directory %s: %s", socket_dir, exc)
+                return 1
 
     log.info("starting milter-autoref on %s (dry_run=%s)", cfg.socket, cfg.dry_run)
     Milter.runmilter("milter-autoref", cfg.socket, timeout=cfg.timeout)
