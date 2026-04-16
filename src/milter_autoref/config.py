@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from ipaddress import IPv4Network, IPv6Network, ip_network
 from typing import Union
 
+IPNetwork = Union[IPv4Network, IPv6Network]
+
 
 def _parse_bool(value: str, name: str) -> bool:
     """Parse a boolean env var. Raises ValueError on unrecognised values."""
@@ -31,11 +33,11 @@ def _parse_log_level(value: str, name: str) -> int:
     return level
 
 
-def _parse_internal_hosts(value: str, name: str) -> tuple:
+def _parse_internal_hosts(value: str, name: str) -> tuple[IPNetwork, ...]:
     """Parse a comma-separated list of CIDR networks. Raises ValueError on bad input."""
     if not value.strip():
         return ()
-    networks = []
+    networks: list[IPNetwork] = []
     for item in value.split(","):
         item = item.strip()
         if not item:
@@ -52,7 +54,7 @@ class Config:
     socket: str
     outgoing_daemons: frozenset
     trust_auth: bool
-    internal_hosts: tuple
+    internal_hosts: tuple[IPNetwork, ...]
     dry_run: bool
     log_level: int
     timeout: int

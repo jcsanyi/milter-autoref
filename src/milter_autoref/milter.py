@@ -48,9 +48,7 @@ class AutorefMilter(Milter.Base):
             self.getsymval("{auth_type}"),
             self.getsymval("{auth_authen}"),
             self.getsymval("{client_addr}"),
-            outgoing_daemons=self._cfg.outgoing_daemons,
-            trust_auth=self._cfg.trust_auth,
-            internal_hosts=self._cfg.internal_hosts,
+            self._cfg,
         )
         self._log.debug(
             "envfrom: from=%s outgoing=%s daemon_name=%r auth_type=%r client_addr=%r",

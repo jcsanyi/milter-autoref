@@ -4,8 +4,20 @@ No pymilter imports — these functions are independently unit-testable.
 """
 
 import re
-from ipaddress import IPv4Network, IPv6Network, ip_address, ip_network
+from ipaddress import (
+    IPv4Address,
+    IPv4Network,
+    IPv6Address,
+    IPv6Network,
+    ip_address,
+    ip_network,
+)
 from typing import Union
+
+from .config import Config
+
+IPAddress = Union[IPv4Address, IPv6Address]
+IPNetwork = Union[IPv4Network, IPv6Network]
 
 
 # ---------------------------------------------------------------------------
@@ -59,7 +71,7 @@ def compute_new_references(
 # Outgoing-mail detection
 # ---------------------------------------------------------------------------
 
-def _parse_client_addr(raw: str) -> Union[object, None]:
+def _parse_client_addr(raw: str) -> Union[IPAddress, None]:
     """Parse a client address string from a Postfix macro into an ip_address object.
 
     Handles an optional 'IPv6:' prefix that Postfix prepends for IPv6 addresses.
@@ -76,7 +88,7 @@ def _parse_client_addr(raw: str) -> Union[object, None]:
 
 def _ip_in_any(
     client_addr: str,
-    networks: tuple,
+    networks: tuple[IPNetwork, ...],
 ) -> bool:
     """Return True if *client_addr* falls within any of *networks*."""
     parsed = _parse_client_addr(client_addr)
@@ -97,22 +109,19 @@ def is_outgoing(
     auth_type: Union[str, None],
     auth_authen: Union[str, None],
     client_addr: Union[str, None],
-    *,
-    outgoing_daemons: frozenset,
-    trust_auth: bool,
-    internal_hosts: tuple,
+    cfg: Config,
 ) -> bool:
     """Return True if this message should be treated as outgoing (fail-closed).
 
     Three independent axes — any match returns True:
-    1. {daemon_name} is in *outgoing_daemons* (e.g. 'ORIGINATING').
-    2. SASL authentication macros are present and *trust_auth* is True.
-    3. {client_addr} falls within any network in *internal_hosts*.
+    1. {daemon_name} is in *cfg.outgoing_daemons* (e.g. 'ORIGINATING').
+    2. SASL authentication macros are present and *cfg.trust_auth* is True.
+    3. {client_addr} falls within any network in *cfg.internal_hosts*.
     """
-    if daemon_name and daemon_name in outgoing_daemons:
+    if daemon_name and daemon_name in cfg.outgoing_daemons:
         return True
-    if trust_auth and (auth_type or auth_authen):
+    if cfg.trust_auth and (auth_type or auth_authen):
         return True
-    if client_addr and internal_hosts and _ip_in_any(client_addr, internal_hosts):
+    if client_addr and cfg.internal_hosts and _ip_in_any(client_addr, cfg.internal_hosts):
         return True
     return False
