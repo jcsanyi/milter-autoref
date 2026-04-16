@@ -1,21 +1,29 @@
 # milter-autoref
 
 A Postfix milter that appends the outgoing `Message-ID` to the `References`
-header, fixing email threading when relaying through AWS SES.
+header, fixing email threading broken by mail relays that rewrite the
+`Message-ID` header (such as AWS SES).
+
+**au·to** /ˈɔː.toʊ/ *prefix*
+1. **self** — referring to oneself
+2. **automatic** — it happens without any manual intervention
+
+The name captures both: milter-autoref *automatically* adds a *self-reference*
+to every outgoing message before it leaves Postfix.
 
 ## The problem
 
-AWS SES rewrites the `Message-ID` header on every message it relays. When a
-recipient replies, their mail client puts the SES-rewritten ID in
-`In-Reply-To` and `References` — but your Sent folder has the original ID.
-Your client can't match them, so the first reply to a thread appears
-unthreaded.
+Some mail relays (such as AWS SES) rewrite the `Message-ID` header on every
+message they handle. When a recipient replies, their mail client puts the
+relay's rewritten ID in `In-Reply-To` and `References` — but your Sent folder
+has the original ID. Your client can't match them, so the first reply to a
+thread appears unthreaded.
 
 ## The fix
 
 Before the message leaves Postfix, append the current `Message-ID` to
 `References`. The recipient's reply will then include both the original and
-SES-rewritten IDs in `References`. Your client finds the original and threads
+rewritten IDs in `References`. Your client finds the original and threads
 correctly.
 
 ## Requirements
@@ -138,8 +146,8 @@ milter_default_action = accept
   adds a `Message-ID` to messages that don't have one, but it does this
   *after* milters run. If your mail client doesn't set a `Message-ID`,
   milter-autoref will log an INFO message and skip the modification — that's
-  correct behaviour, since SES can only break threading on messages that had
-  a `Message-ID` to rewrite.
+  correct behaviour, since threading is only affected on messages where the
+  relay rewrote a `Message-ID` that the client originally set.
 
 - **Fail-closed detection.** If none of the configured outgoing signals match
   (daemon name, auth macros, internal hosts), the milter will not modify the
