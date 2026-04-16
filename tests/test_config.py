@@ -20,7 +20,7 @@ class TestConfigDefaults:
             monkeypatch.delenv(key, raising=False)
 
         cfg = Config.from_env()
-        assert cfg.socket == "/var/run/milter-autoref/sock"
+        assert cfg.socket == "/tmp/milter-autoref.sock"
         assert cfg.outgoing_daemons == frozenset({"ORIGINATING"})
         assert cfg.trust_auth is True
         assert cfg.internal_hosts == ()
