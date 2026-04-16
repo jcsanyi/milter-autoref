@@ -1,15 +1,15 @@
 # milter-autoref
 
-A Postfix milter that appends the outgoing `Message-ID` to the `References`
-header, fixing email threading broken by mail relays that rewrite the
-`Message-ID` header (such as AWS SES).
+A Postfix milter that appends the current message's `Message-ID` value to the `References`
+header for outgoing messages - fixing email threading that's broken by mail relays like AWS SES rewriting the
+`Message-ID` header.
 
 **au·to** /ˈɔː.toʊ/ *prefix*
 1. **self** - referring to oneself
 2. **automatic** - happening without any manual intervention
 
-The `autoref` name captures both: this milter *automatically* adds a *self-reference*
-to every outgoing message before it leaves Postfix.
+The `autoref` name relies on both meanings: this milter *automatically* adds a *self-reference*
+to every outgoing message.
 
 ## The problem this solves
 
@@ -151,25 +151,6 @@ that case, scope the milter per-service in `master.cf` and set
   milter-autoref will log an INFO message and skip the modification - that's
   correct behaviour, since threading is only affected on messages where the
   relay rewrote a `Message-ID` that the client originally set.
-
-## Planned improvements
-
-These are out of scope for v1 but captured here for future reference.
-
-- **Configurable log destination.** Add an `AUTOREF_LOG_DEST` env var
-  accepting `stderr` (default), `stdout`, `syslog`, or a file path. Syslog
-  would use the `LOG_MAIL` facility, which is conventional for mail tooling
-  and routes to `/var/log/mail.log` on most systems. The current default of
-  stderr is correct for Docker and systemd, so this is purely a flexibility
-  add for bare-metal deployments.
-
-- **References header length management.** Long email threads can produce a
-  `References` header that exceeds RFC 5322's recommended 998-character line
-  limit, and some MTAs or clients cap it further. A future
-  `AUTOREF_MAX_REFERENCES_BYTES` option would trim the header when it
-  exceeds the limit, using a "keep first + last-N tokens" policy to preserve
-  the thread root and the most recent ancestors - the two parts MUAs actually
-  use for threading.
 
 ## Development
 
