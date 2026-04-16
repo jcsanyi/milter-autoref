@@ -4,6 +4,8 @@ import pytest
 
 from milter_autoref.config import Config
 from milter_autoref.logic import (
+    _FOLD_LINE_WIDTH,
+    _REFERENCES_HEADER_PREFIX_LEN,
     _ip_in_any,
     compute_new_references,
     extract_message_id_token,
@@ -86,12 +88,12 @@ class TestComputeNewReferences:
     def test_message_id_without_brackets_returns_none(self):
         assert compute_new_references("bare-id@example.com", None) is None
 
-    def test_preserves_internal_whitespace_of_existing_refs(self):
+    def test_normalises_internal_whitespace_of_existing_refs(self):
         refs = "<a@x.com>  <b@x.com>"
         result = compute_new_references("<c@x.com>", refs)
-        assert result == "<a@x.com>  <b@x.com> <c@x.com>"
+        assert result == "<a@x.com> <b@x.com> <c@x.com>"
 
-    def test_rstrips_trailing_whitespace_before_appending(self):
+    def test_strips_trailing_whitespace_before_appending(self):
         result = compute_new_references("<b@x.com>", "<a@x.com>   ")
         assert result == "<a@x.com> <b@x.com>"
 
@@ -103,6 +105,45 @@ class TestComputeNewReferences:
         # Message-ID header value sometimes has surrounding text
         result = compute_new_references("some text <x@y.com> more text", None)
         assert result == "<x@y.com>"
+
+    def test_unfolds_crlf_folded_existing_refs_on_append(self):
+        refs = "<a@x.com>\r\n <b@x.com>"
+        result = compute_new_references("<c@x.com>", refs)
+        assert result == "<a@x.com> <b@x.com> <c@x.com>"
+
+    def test_drops_cfws_comments_between_tokens(self):
+        refs = "<a@x.com> (old) <b@x.com>"
+        result = compute_new_references("<c@x.com>", refs)
+        assert result == "<a@x.com> <b@x.com> <c@x.com>"
+
+    def test_short_result_is_not_folded(self):
+        result = compute_new_references("<b@x.com>", "<a@x.com>")
+        assert "\r\n" not in result
+
+    def test_long_result_is_folded_to_line_width(self):
+        # Build enough tokens that the joined line exceeds 78 chars.
+        tokens = [f"<msg-id-{i:03d}@example.com>" for i in range(10)]
+        existing = " ".join(tokens)
+        result = compute_new_references("<new@example.com>", existing)
+        assert "\r\n " in result
+
+        # Validate per-line lengths: first line counts the "References: "
+        # prefix the MTA prepends; continuation lines count their leading SP.
+        lines = result.split("\r\n")
+        assert len(lines[0]) + _REFERENCES_HEADER_PREFIX_LEN <= _FOLD_LINE_WIDTH or \
+            len(lines[0].split(" ")) == 1  # lone oversized token allowed
+        for cont in lines[1:]:
+            # Continuation lines are stored without their fold-leading SP here;
+            # the SP is part of the "\r\n " join sequence.
+            assert len(cont) + 1 <= _FOLD_LINE_WIDTH or len(cont.split(" ")) == 1
+
+    def test_oversized_single_token_kept_on_own_line(self):
+        # A token longer than the line budget must not be split.
+        long_tok = "<" + "x" * 100 + "@example.com>"
+        result = compute_new_references("<new@example.com>", f"<a@x.com> {long_tok}")
+        lines = result.split("\r\n ")
+        # Oversized token is on its own line, intact.
+        assert long_tok in lines
 
 
 # ---------------------------------------------------------------------------

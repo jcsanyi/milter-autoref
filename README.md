@@ -175,12 +175,6 @@ These are out of scope for v1 but captured here for future reference.
   the thread root and the most recent ancestors - the two parts MUAs actually
   use for threading.
 
-- **Proper folded-header handling.** v1 treats the raw `References` value as
-  an opaque string (rstrip and append). A more correct implementation would
-  tokenise across CRLF-folded continuations, normalise whitespace per RFC
-  5322, re-fold the output to conventional line widths, and optionally
-  coalesce multiple `References` headers into one.
-
 ## Development
 
 ```

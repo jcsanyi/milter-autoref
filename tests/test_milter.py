@@ -128,6 +128,37 @@ class TestOutgoingNoMessageId:
         m.chgheader.assert_not_called()
 
 
+class TestFoldedReferencesHeader:
+    def test_folded_existing_refs_produce_normalized_output(self):
+        m = _make_milter()
+        _drive(
+            m,
+            [
+                ("Message-ID", "<orig@example.com>"),
+                ("References", "<a@x.com>\r\n <b@x.com>"),
+            ],
+            macros=OUTGOING_MACROS,
+        )
+        m.chgheader.assert_called_once_with(
+            "References", 1, "<a@x.com> <b@x.com> <orig@example.com>"
+        )
+
+    def test_long_refs_get_refolded(self):
+        m = _make_milter()
+        tokens = [f"<msg-{i:03d}@example.com>" for i in range(10)]
+        _drive(
+            m,
+            [
+                ("Message-ID", "<orig@example.com>"),
+                ("References", " ".join(tokens)),
+            ],
+            macros=OUTGOING_MACROS,
+        )
+        args = m.chgheader.call_args
+        value = args[0][2]
+        assert "\r\n " in value
+
+
 class TestMultipleReferencesHeaders:
     def test_chgheader_called_with_last_index(self):
         m = _make_milter()

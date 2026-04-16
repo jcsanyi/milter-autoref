@@ -26,6 +26,9 @@ IPNetwork = Union[IPv4Network, IPv6Network]
 
 _MSG_ID_RE = re.compile(r"<[^<>\s]+>")
 
+_REFERENCES_HEADER_PREFIX_LEN = len("References: ")
+_FOLD_LINE_WIDTH = 78  # RFC 5322 SHOULD limit
+
 
 def extract_message_id_token(raw: str) -> Union[str, None]:
     """Return the first <...> token in *raw*, stripped of surrounding whitespace.
@@ -34,6 +37,31 @@ def extract_message_id_token(raw: str) -> Union[str, None]:
     """
     m = _MSG_ID_RE.search(raw)
     return m.group(0) if m else None
+
+
+def _fold_references(tokens: list[str]) -> str:
+    """Serialize *tokens* space-separated, inserting CRLF+SP folds so no line
+    exceeds _FOLD_LINE_WIDTH.
+
+    The first line's budget is reduced by the 'References: ' prefix the MTA
+    will prepend. Continuation lines count the leading SP against the budget.
+    A token longer than the budget is kept on its own line rather than split.
+    """
+    if not tokens:
+        return ""
+
+    first_budget = _FOLD_LINE_WIDTH - _REFERENCES_HEADER_PREFIX_LEN
+    cont_budget = _FOLD_LINE_WIDTH - 1  # leading SP on continuation lines
+
+    lines = [tokens[0]]
+    for tok in tokens[1:]:
+        budget = first_budget if len(lines) == 1 else cont_budget
+        candidate = lines[-1] + " " + tok
+        if len(candidate) > budget:
+            lines.append(tok)
+        else:
+            lines[-1] = candidate
+    return "\r\n ".join(lines)
 
 
 def compute_new_references(
@@ -45,9 +73,11 @@ def compute_new_references(
     Rules:
     - If *message_id* is missing, blank, or contains no <...> token → None.
     - Normalise to the first <...> token from *message_id*.
-    - If *existing_references* is None → return the token alone (caller must addheader).
+    - If *existing_references* is None → return the token alone.
     - If *existing_references* already contains the token (idempotent) → None.
-    - Otherwise → rstrip *existing_references* and append a space + token.
+    - Otherwise tokenise *existing_references* (unfolding CRLF-folded
+      continuations and dropping CFWS comments and extraneous whitespace),
+      append the new token, and re-fold at the RFC 5322 SHOULD line width.
     """
     if not message_id:
         return None
@@ -59,12 +89,12 @@ def compute_new_references(
     if existing_references is None:
         return mid
 
-    # Check idempotency: scan all <...> tokens in existing_references.
-    existing_tokens = _MSG_ID_RE.findall(existing_references)
-    if mid in existing_tokens:
+    tokens = _MSG_ID_RE.findall(existing_references)
+    if mid in tokens:
         return None
 
-    return existing_references.rstrip() + " " + mid
+    tokens.append(mid)
+    return _fold_references(tokens)
 
 
 # ---------------------------------------------------------------------------
