@@ -49,6 +49,34 @@ pipx install .
 If you don't have `pipx`, install it with your OS package manager
 (`python-pipx` on Arch, `pipx` on Debian/Ubuntu) or via `pip install pipx`.
 
+## Docker
+
+Run with Docker:
+
+```
+docker run -d --name milter-autoref -p 8890:8890 jcsanyi/milter-autoref:latest
+```
+
+Or with docker-compose (see `docker-compose.yml` in the repo):
+
+```
+docker compose up -d
+```
+
+The container listens on `inet:8890` by default. Configure Postfix to
+connect to it:
+
+```
+# /etc/postfix/main.cf (or per-service override in master.cf)
+smtpd_milters = inet:localhost:8890
+```
+
+If Postfix runs in the same compose network, use the service name
+instead: `smtpd_milters = inet:milter-autoref:8890`.
+
+All configuration is via environment variables (see Configuration below),
+passed with `-e` or via the `environment` key in `docker-compose.yml`.
+
 ## Running
 
 ```

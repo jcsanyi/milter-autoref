@@ -1,0 +1,14 @@
+services:
+  milter-autoref:
+    image: jcsanyi/milter-autoref:latest
+    restart: unless-stopped
+    environment:
+      - AUTOREF_AUTH_ONLY=true
+      - AUTOREF_LOG_LEVEL=INFO
+    # If Postfix runs in the same compose network, no ports needed.
+    # Postfix config: smtpd_milters = inet:milter-autoref:8890
+    #
+    # If Postfix runs on the host, uncomment to expose the port:
+    # ports:
+    #   - "8890:8890"
+    # Postfix config: smtpd_milters = inet:localhost:8890
