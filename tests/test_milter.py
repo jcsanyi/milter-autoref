@@ -256,6 +256,37 @@ class TestDryRun:
 # ---------------------------------------------------------------------------
 
 
+class TestEomResetsState:
+    def test_second_message_does_not_inherit_references_from_first(self):
+        m = _make_milter()
+        macros = OUTGOING_MACROS
+
+        # First message: has a References header, completes normally via eom()
+        m.getsymval = MagicMock(side_effect=lambda key: macros.get(key))
+        m.connect("localhost", None, ("127.0.0.1", 0))
+        m.envfrom("<a@example.com>")
+        m.header("Message-ID", "<first@example.com>")
+        m.header("References", "<old@example.com>")
+        m.eoh()
+        m.body(b"body")
+        m.eom()
+
+        # Reset mocks so we only see calls from the second message
+        m.addheader.reset_mock()
+        m.chgheader.reset_mock()
+
+        # Second message on the same connection: no References header
+        m.envfrom("<b@example.com>")
+        m.header("Message-ID", "<second@example.com>")
+        m.eoh()
+        m.body(b"body")
+        m.eom()
+
+        # Should addheader (no References on this message), not chgheader
+        m.addheader.assert_called_once_with("References", "<second@example.com>")
+        m.chgheader.assert_not_called()
+
+
 class TestAbortResetsState:
     def test_abort_resets_state(self):
         m = _make_milter()

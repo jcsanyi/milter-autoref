@@ -43,6 +43,7 @@ class AutorefMilter(Milter.Base):
 
     @Milter.noreply
     def envfrom(self, mailfrom, *esmtp):
+        self._reset()
         self._outgoing = is_outgoing(
             self.getsymval("{auth_type}"),
             self.getsymval("{auth_authen}"),
