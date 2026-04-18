@@ -78,13 +78,13 @@ All configuration is via environment variables.
 
 | Variable | Default | Description |
 |---|---|---|
-| AUTOREF_SOCKET | /tmp/milter-autoref.sock | pymilter address string. Unix path, `inet:port@host`, or `inet6:port@host`. |
-| AUTOREF_AUTH_ONLY | true | Only rewrite messages that authenticated via SASL (`{auth_type}` or `{auth_authen}` set). Set to `false` if you've scoped the milter to outbound-only traffic via `master.cf`. |
-| AUTOREF_DRY_RUN | false | Log intended header changes without applying them. |
-| AUTOREF_LOG_LEVEL | INFO | `DEBUG`, `INFO`, `WARNING`, or `ERROR`. |
-| AUTOREF_TIMEOUT | 600 | Milter timeout in seconds. |
-| AUTOREF_TRIM_REFERENCES | true | Trim the `References` header to at most `AUTOREF_MAX_REFERENCES` tokens, keeping the thread root and most recent ancestors. |
-| AUTOREF_MAX_REFERENCES | 20 | Maximum number of Message-ID tokens to keep in the `References` header when trimming is enabled. Must be a positive integer. |
+| **AUTOREF_SOCKET** | /tmp/milter-autoref.sock | Socket to listen on. Unix path, `inet:port@host`, or `inet6:port@host`. |
+| **AUTOREF_AUTH_ONLY** | true | Only rewrite messages that authenticated via SASL (`{auth_type}` or `{auth_authen}` set). Set to `false` if you've scoped the milter to outbound-only traffic via `master.cf`. |
+| **AUTOREF_DRY_RUN** | false | Log intended header changes without applying them. |
+| **AUTOREF_LOG_LEVEL** | INFO | `DEBUG`, `INFO`, `WARNING`, or `ERROR`. |
+| **AUTOREF_TIMEOUT** | 600 | Milter timeout in seconds. |
+| **AUTOREF_TRIM_REFERENCES** | true | Trim the `References` header to at most `AUTOREF_MAX_REFERENCES` tokens, keeping the thread root and most recent ancestors. |
+| **AUTOREF_MAX_REFERENCES** | 20 | Maximum number of Message-ID tokens to keep in the `References` header when trimming is enabled. Must be a positive integer. |
 
 Boolean values accept: `1/true/yes/on` or `0/false/no/off` (case-insensitive).
 
