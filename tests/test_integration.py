@@ -296,18 +296,23 @@ class IncomingMessage:
 
 # Strategies
 
-_mid = st.from_regex(r'<[a-z]{3,8}-[0-9]{1,4}@example\.com>', fullmatch=True)
+_mid = st.integers(min_value=0).map(lambda n: f"<msg-{n}@example.com>")
 
 
 @st.composite
 def _appends_scenario(draw):
-    tokens = draw(st.lists(_mid, min_size=2, max_size=6, unique=True))
+    n = draw(st.integers(min_value=2, max_value=6))
+    start = draw(st.integers(min_value=0))
+    # Sequential offsets guarantee uniqueness by construction — no filter retries.
+    tokens = [f"<msg-{start + i}@example.com>" for i in range(n)]
     return OutgoingAppendsToRefs(message_id=tokens[-1], existing_tokens=tokens[:-1])
 
 
 @st.composite
 def _idempotent_scenario(draw):
-    tokens = draw(st.lists(_mid, min_size=1, max_size=5, unique=True))
+    n = draw(st.integers(min_value=1, max_value=5))
+    start = draw(st.integers(min_value=0))
+    tokens = [f"<msg-{start + i}@example.com>" for i in range(n)]
     mid = draw(st.sampled_from(tokens))
     return OutgoingAlreadyPresent(message_id=mid, existing_tokens=tokens)
 
