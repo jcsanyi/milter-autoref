@@ -161,6 +161,14 @@ pip install -e '.[dev]'
 pytest
 ```
 
-Tests in `tests/test_logic.py` cover the pure header-manipulation functions
-and require no libmilter. Tests in `tests/test_milter.py` mock the pymilter
-API and exercise the full callback chain.
+The test suite has three layers:
+
+- **`tests/test_logic.py`** — pure header-manipulation functions; no `libmilter` required.
+- **`tests/test_milter.py`** — full callback chain with the pymilter API mocked out.
+- **`tests/test_integration.py`** — live milter over a real Unix socket using [`miltertest`](https://pypi.org/project/miltertest/). Includes a [Hypothesis](https://hypothesis.readthedocs.io/) property-based test that generates random multi-message sequences on a single connection to catch unanticipated state-leakage bugs.
+
+For deeper exploration of the property-based test (e.g. before shipping significant changes to `milter.py` or `logic.py`):
+
+```
+HYPOTHESIS_MAX_EXAMPLES=1000 pytest tests/test_integration.py::TestPropertyBased::test_random_message_sequences -v
+```

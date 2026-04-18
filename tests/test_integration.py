@@ -6,14 +6,17 @@ milter protocol directly against a live AutorefMilter instance.
 
 import logging
 import os
+import re
 import socket
-import tempfile
 import threading
 import time
+from dataclasses import dataclass
 
 import Milter
 import miltertest
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 from miltertest import constants as mc
 
 from milter_autoref.config import Config
@@ -238,6 +241,150 @@ class TestIntegrationMultipleMessages:
             # Must be addheader, not chgheader — no References on this message.
             assert cmd == mc.SMFIR_ADDHEADER
             assert params["value"] == "<second@example.com>"
+        finally:
+            try:
+                conn._send(mc.SMFIC_QUIT)
+            except Exception:
+                pass
+            conn.sock.close()
+
+
+# ---------------------------------------------------------------------------
+# Property-based testing
+# ---------------------------------------------------------------------------
+
+# Scenario types — each carries its own expected outcome as a docstring and
+# field layout. No logic.py used as oracle; expectations are derived directly
+# from the inputs we generated.
+
+
+@dataclass
+class OutgoingNoRefs:
+    """Outgoing message, no existing References.
+    Expected: SMFIR_ADDHEADER, value tokens == [message_id]."""
+    message_id: str
+
+
+@dataclass
+class OutgoingAppendsToRefs:
+    """Outgoing message, message_id NOT already in References.
+    Expected: SMFIR_CHGHEADER index=1, value tokens == existing_tokens + [message_id]."""
+    message_id: str
+    existing_tokens: list
+
+
+@dataclass
+class OutgoingAlreadyPresent:
+    """Outgoing message, message_id IS already in References.
+    Expected: no modification."""
+    message_id: str
+    existing_tokens: list  # contains message_id
+
+
+@dataclass
+class OutgoingNoMessageId:
+    """Outgoing message with no Message-ID header.
+    Expected: no modification."""
+
+
+@dataclass
+class IncomingMessage:
+    """Unauthenticated (incoming) message.
+    Expected: no modification."""
+    message_id: str
+
+
+# Strategies
+
+_mid = st.from_regex(r'<[a-z]{3,8}-[0-9]{1,4}@example\.com>', fullmatch=True)
+
+
+@st.composite
+def _appends_scenario(draw):
+    tokens = draw(st.lists(_mid, min_size=2, max_size=6, unique=True))
+    return OutgoingAppendsToRefs(message_id=tokens[-1], existing_tokens=tokens[:-1])
+
+
+@st.composite
+def _idempotent_scenario(draw):
+    tokens = draw(st.lists(_mid, min_size=1, max_size=5, unique=True))
+    mid = draw(st.sampled_from(tokens))
+    return OutgoingAlreadyPresent(message_id=mid, existing_tokens=tokens)
+
+
+_scenario = st.one_of(
+    st.builds(OutgoingNoRefs, message_id=_mid),
+    _appends_scenario(),
+    _idempotent_scenario(),
+    st.just(OutgoingNoMessageId()),
+    st.builds(IncomingMessage, message_id=_mid),
+)
+
+_TOKEN_RE = re.compile(r'<[^<>]+>')
+
+
+def _run_step(conn, step) -> None:
+    """Send one message on an open connection and assert the milter's response."""
+    if isinstance(step, IncomingMessage):
+        # Explicitly zero out auth macros so a previous outgoing step on the same
+        # connection doesn't leak its SASL state into this step's envfrom().
+        # An empty MACRO packet does not clear previously set macros in pymilter.
+        conn.send_macro(mc.SMFIC_MAIL, **{"{auth_type}": "", "{auth_authen}": ""})
+    else:
+        conn.send_macro(mc.SMFIC_MAIL, **OUTGOING_MACROS)
+    conn.send_ar(mc.SMFIC_MAIL, args=["<sender@example.com>"])
+
+    if isinstance(step, OutgoingNoRefs):
+        conn.send_headers([("Message-ID", step.message_id)])
+    elif isinstance(step, (OutgoingAppendsToRefs, OutgoingAlreadyPresent)):
+        conn.send_headers([
+            ("Message-ID", step.message_id),
+            ("References", " ".join(step.existing_tokens)),
+        ])
+    elif isinstance(step, OutgoingNoMessageId):
+        conn.send_headers([("Subject", "Test")])
+    elif isinstance(step, IncomingMessage):
+        conn.send_headers([("Message-ID", step.message_id)])
+
+    conn.send_ar(mc.SMFIC_EOH)
+    conn.send_body("Test body")
+    actions = _modification_actions(conn.send_eom())
+
+    if isinstance(step, OutgoingNoRefs):
+        assert len(actions) == 1, f"OutgoingNoRefs: expected 1 action, got {actions}"
+        cmd, params = actions[0]
+        assert cmd == mc.SMFIR_ADDHEADER
+        assert params["name"] == "References"
+        assert _TOKEN_RE.findall(params["value"]) == [step.message_id]
+
+    elif isinstance(step, OutgoingAppendsToRefs):
+        assert len(actions) == 1, f"OutgoingAppendsToRefs: expected 1 action, got {actions}"
+        cmd, params = actions[0]
+        assert cmd == mc.SMFIR_CHGHEADER
+        assert params["index"] == 1
+        assert params["name"] == "References"
+        assert _TOKEN_RE.findall(params["value"]) == step.existing_tokens + [step.message_id]
+
+    else:
+        assert actions == [], f"{type(step).__name__}: expected no modifications, got {actions}"
+
+
+class TestPropertyBased:
+    @settings(max_examples=100)
+    @given(steps=st.lists(_scenario, min_size=1, max_size=10))
+    def test_random_message_sequences(self, milter_socket, steps):
+        """Drive random sequences of typed message scenarios on a single connection.
+
+        Each scenario defines its own expected outcome. No logic.py used as
+        oracle — expectations are derived directly from the generated inputs.
+        Catches state-leakage bugs across consecutive messages on one connection.
+        """
+        conn = _open_connection(milter_socket)
+        try:
+            conn.send_macro(mc.SMFIC_CONNECT)
+            conn.send_ar(mc.SMFIC_CONNECT, hostname="localhost", family=mc.SMFIA_INET, port=0, address="127.0.0.1")
+            for step in steps:
+                _run_step(conn, step)
         finally:
             try:
                 conn._send(mc.SMFIC_QUIT)

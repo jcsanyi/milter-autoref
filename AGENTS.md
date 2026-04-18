@@ -27,6 +27,10 @@ pytest tests/test_milter.py::TestOutgoingWithExistingReferences::test_chgheader_
 
 # Run the milter (dry-run mode recommended for first use)
 AUTOREF_DRY_RUN=true AUTOREF_LOG_LEVEL=DEBUG milter-autoref
+
+# Run the property-based integration test with deeper exploration
+# (run this locally after significant changes to milter.py or logic.py)
+HYPOTHESIS_MAX_EXAMPLES=1000 pytest tests/test_integration.py::TestPropertyBased::test_random_message_sequences -v
 ```
 
 `libmilter` is a system package (`libmilter` on Arch, `libmilter-dev` on Debian/Ubuntu, `sendmail-devel` on RHEL) and must be installed before `pymilter` can be built.
