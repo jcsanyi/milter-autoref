@@ -6,7 +6,7 @@ This file provides guidance to AI coding agents working in this repository.
 
 Do not add AI agent attribution to commits (no `Co-Authored-By` lines). The user owns all code in this repository.
 
-Do not commit changes automatically after making them. Wait until the user explicitly asks to commit.
+Never run `git commit` or `git push` without an explicit instruction in the current message to do so. Completing a task does not constitute permission to commit — each commit requires a fresh explicit request. If changes are ready, say so and stop.
 
 ## Commands
 
