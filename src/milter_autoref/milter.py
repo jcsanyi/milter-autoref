@@ -82,12 +82,25 @@ class AutorefMilter(Milter.Base):
         if not self._outgoing:
             return Milter.CONTINUE
 
+        try:
+            return self._eom_inner()
+        except Exception:
+            self._log.error("unhandled exception in eom", exc_info=True)
+            raise
+
+    def _eom_inner(self):
         mid = extract_message_id_token(self._message_id_value or "")
         if mid is None:
-            self._log.info(
-                "no Message-ID token visible at eom; skipping "
-                "(Postfix cleanup(8) may add one after milters run)"
-            )
+            if self._message_id_value:
+                self._log.warning(
+                    "Message-ID header present but malformed: %r",
+                    self._message_id_value,
+                )
+            else:
+                self._log.warning(
+                    "no Message-ID token visible at eom; skipping "
+                    "(Postfix cleanup(8) may add one after milters run)"
+                )
             return Milter.CONTINUE
 
         max_refs = self._cfg.max_references if self._cfg.trim_references else 0
@@ -95,7 +108,7 @@ class AutorefMilter(Milter.Base):
             mid, self._references_last_value, max_refs
         )
         if new_refs is None:
-            self._log.debug("References already contains %s; no change needed", mid)
+            self._log.info("References already contains %s; no change needed", mid)
             return Milter.CONTINUE
 
         if self._cfg.dry_run:
@@ -108,13 +121,10 @@ class AutorefMilter(Milter.Base):
 
         try:
             if self._references_count == 0:
-                self._log.debug("addheader References=%r", new_refs)
+                self._log.info("addheader References=%r", new_refs)
                 self.addheader("References", new_refs)
             else:
-                # chgheader replaces the Nth occurrence of the named header (1-based).
-                # When there are multiple References headers we modify the last one
-                # and leave any earlier ones untouched.
-                self._log.debug(
+                self._log.info(
                     "chgheader References[%d]=%r", self._references_last_index, new_refs
                 )
                 self.chgheader("References", self._references_last_index, new_refs)

@@ -46,8 +46,17 @@ def main() -> int:
                 log.error("cannot create socket directory %s: %s", socket_dir, exc)
                 return 1
 
-    log.info("starting milter-autoref on %s (dry_run=%s)", cfg.socket, cfg.dry_run)
-    Milter.runmilter("milter-autoref", cfg.socket, timeout=cfg.timeout)
+    log.info(
+        "starting milter-autoref on %s (dry_run=%s, auth_only=%s, "
+        "trim_references=%s, max_references=%d)",
+        cfg.socket,
+        cfg.dry_run,
+        cfg.auth_only,
+        cfg.trim_references,
+        cfg.max_references,
+    )
+    Milter.runmilter("milter-autoref", cfg.socket)
+    log.info("milter stopped")
     return 0
 
 

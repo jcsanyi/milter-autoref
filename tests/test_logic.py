@@ -18,7 +18,6 @@ def _make_cfg(**overrides) -> Config:
         auth_only=True,
         dry_run=False,
         log_level=20,
-        timeout=600,
         trim_references=True,
         max_references=20,
     )

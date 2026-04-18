@@ -13,7 +13,6 @@ class TestConfigDefaults:
             "AUTOREF_AUTH_ONLY",
             "AUTOREF_DRY_RUN",
             "AUTOREF_LOG_LEVEL",
-            "AUTOREF_TIMEOUT",
             "AUTOREF_TRIM_REFERENCES",
             "AUTOREF_MAX_REFERENCES",
         ):
@@ -24,7 +23,6 @@ class TestConfigDefaults:
         assert cfg.auth_only is True
         assert cfg.dry_run is False
         assert cfg.log_level == logging.INFO
-        assert cfg.timeout == 600
         assert cfg.trim_references is True
         assert cfg.max_references == 20
 
@@ -81,18 +79,6 @@ class TestConfigLogLevel:
     def test_invalid_log_level_raises(self, monkeypatch):
         monkeypatch.setenv("AUTOREF_LOG_LEVEL", "VERBOSE")
         with pytest.raises(ValueError, match="AUTOREF_LOG_LEVEL"):
-            Config.from_env()
-
-
-class TestConfigTimeout:
-    def test_custom_timeout(self, monkeypatch):
-        monkeypatch.setenv("AUTOREF_TIMEOUT", "300")
-        cfg = Config.from_env()
-        assert cfg.timeout == 300
-
-    def test_non_integer_raises(self, monkeypatch):
-        monkeypatch.setenv("AUTOREF_TIMEOUT", "fast")
-        with pytest.raises(ValueError, match="AUTOREF_TIMEOUT"):
             Config.from_env()
 
 

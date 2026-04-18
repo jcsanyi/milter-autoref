@@ -35,7 +35,6 @@ class Config:
     auth_only: bool
     dry_run: bool
     log_level: int
-    timeout: int
     trim_references: bool
     max_references: int
 
@@ -55,14 +54,6 @@ class Config:
         log_level = _parse_log_level(
             os.environ.get("AUTOREF_LOG_LEVEL", "INFO"), "AUTOREF_LOG_LEVEL"
         )
-
-        raw_timeout = os.environ.get("AUTOREF_TIMEOUT", "600")
-        try:
-            timeout = int(raw_timeout)
-        except ValueError:
-            raise ValueError(
-                f"Invalid integer for AUTOREF_TIMEOUT: {raw_timeout!r}"
-            )
 
         trim_references = _parse_bool(
             os.environ.get("AUTOREF_TRIM_REFERENCES", "true"),
@@ -86,7 +77,6 @@ class Config:
             auth_only=auth_only,
             dry_run=dry_run,
             log_level=log_level,
-            timeout=timeout,
             trim_references=trim_references,
             max_references=max_references,
         )

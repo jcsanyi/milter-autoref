@@ -39,7 +39,6 @@ def milter_socket(tmp_path_factory):
         auth_only=True,
         dry_run=False,
         log_level=logging.WARNING,
-        timeout=600,
         trim_references=True,
         max_references=8,
     )
@@ -51,7 +50,7 @@ def milter_socket(tmp_path_factory):
     thread = threading.Thread(
         target=Milter.runmilter,
         args=("test-milter", sock_path),
-        kwargs={"timeout": 600},
+        kwargs={},
         daemon=True,
     )
     thread.start()
