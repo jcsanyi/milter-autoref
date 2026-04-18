@@ -1,0 +1,20 @@
+name: Docker Hub Description
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'DOCKER.md'
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ secrets.DOCKERHUB_USERNAME }}/milter-autoref
+          readme-filepath: DOCKER.md
