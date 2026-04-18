@@ -40,6 +40,8 @@ def milter_socket(tmp_path_factory):
         dry_run=False,
         log_level=logging.WARNING,
         timeout=600,
+        trim_references=True,
+        max_references=8,
     )
     log = logging.getLogger("test_integration")
 
@@ -203,6 +205,64 @@ class TestIntegrationIncoming:
 
 
 # ---------------------------------------------------------------------------
+# Trimming (fixture uses max_references=8)
+# ---------------------------------------------------------------------------
+
+
+class TestIntegrationTrimming:
+    def test_trims_when_over_max_references(self, milter_socket):
+        """Send 12 existing tokens + Message-ID (13 total).
+        Result should have exactly 8 tokens: thread root + last 7."""
+        tokens = [f"<msg-{i}@example.com>" for i in range(12)]
+        result = _drive(
+            milter_socket,
+            headers=[
+                ("Message-ID", "<new@example.com>"),
+                ("References", " ".join(tokens)),
+            ],
+            macros=OUTGOING_MACROS,
+        )
+        actions = _modification_actions(result)
+        assert len(actions) == 1
+        cmd, params = actions[0]
+        assert cmd == mc.SMFIR_CHGHEADER
+        found = _TOKEN_RE.findall(params["value"])
+        assert len(found) == 8
+        assert found[0] == "<msg-0@example.com>"
+        assert found[-1] == "<new@example.com>"
+
+    def test_no_trimming_when_under_limit(self, milter_socket):
+        result = _drive(
+            milter_socket,
+            headers=[
+                ("Message-ID", "<new@example.com>"),
+                ("References", "<a@x.com> <b@x.com> <c@x.com>"),
+            ],
+            macros=OUTGOING_MACROS,
+        )
+        actions = _modification_actions(result)
+        assert len(actions) == 1
+        found = _TOKEN_RE.findall(actions[0][1]["value"])
+        assert len(found) == 4
+        assert found == ["<a@x.com>", "<b@x.com>", "<c@x.com>", "<new@example.com>"]
+
+    def test_trimming_preserves_thread_root(self, milter_socket):
+        """Thread root (first token) must always be preserved."""
+        tokens = [f"<msg-{i}@example.com>" for i in range(12)]
+        result = _drive(
+            milter_socket,
+            headers=[
+                ("Message-ID", "<new@example.com>"),
+                ("References", " ".join(tokens)),
+            ],
+            macros=OUTGOING_MACROS,
+        )
+        actions = _modification_actions(result)
+        found = _TOKEN_RE.findall(actions[0][1]["value"])
+        assert found[0] == "<msg-0@example.com>"
+
+
+# ---------------------------------------------------------------------------
 # Multiple messages on one connection
 # ---------------------------------------------------------------------------
 
@@ -290,6 +350,15 @@ class OutgoingNoMessageId:
 
 
 @dataclass
+class OutgoingAppendsWithTrimming:
+    """Outgoing message with enough existing tokens to exceed max_references (8).
+    Expected: SMFIR_CHGHEADER, result has exactly 8 tokens, first is thread root,
+    last is message_id."""
+    message_id: str
+    existing_tokens: list  # len > 7, so total > 8 after append
+
+
+@dataclass
 class IncomingMessage:
     """Unauthenticated (incoming) message.
     Expected: no modification."""
@@ -311,6 +380,14 @@ def _appends_scenario(draw):
 
 
 @st.composite
+def _appends_with_trimming_scenario(draw):
+    n = draw(st.integers(min_value=9, max_value=15))
+    start = draw(st.integers(min_value=0))
+    tokens = [f"<msg-{start + i}@example.com>" for i in range(n)]
+    return OutgoingAppendsWithTrimming(message_id=tokens[-1], existing_tokens=tokens[:-1])
+
+
+@st.composite
 def _idempotent_scenario(draw):
     n = draw(st.integers(min_value=1, max_value=5))
     start = draw(st.integers(min_value=0))
@@ -322,6 +399,7 @@ def _idempotent_scenario(draw):
 _scenario = st.one_of(
     st.builds(OutgoingNoRefs, message_id=_mid),
     _appends_scenario(),
+    _appends_with_trimming_scenario(),
     _idempotent_scenario(),
     st.just(OutgoingNoMessageId()),
     st.builds(IncomingMessage, message_id=_mid),
@@ -343,7 +421,7 @@ def _run_step(conn, step) -> None:
 
     if isinstance(step, OutgoingNoRefs):
         conn.send_headers([("Message-ID", step.message_id)])
-    elif isinstance(step, (OutgoingAppendsToRefs, OutgoingAlreadyPresent)):
+    elif isinstance(step, (OutgoingAppendsToRefs, OutgoingAppendsWithTrimming, OutgoingAlreadyPresent)):
         conn.send_headers([
             ("Message-ID", step.message_id),
             ("References", " ".join(step.existing_tokens)),
@@ -371,6 +449,17 @@ def _run_step(conn, step) -> None:
         assert params["index"] == 1
         assert params["name"] == "References"
         assert _TOKEN_RE.findall(params["value"]) == step.existing_tokens + [step.message_id]
+
+    elif isinstance(step, OutgoingAppendsWithTrimming):
+        assert len(actions) == 1, f"OutgoingAppendsWithTrimming: expected 1 action, got {actions}"
+        cmd, params = actions[0]
+        assert cmd == mc.SMFIR_CHGHEADER
+        assert params["index"] == 1
+        assert params["name"] == "References"
+        found = _TOKEN_RE.findall(params["value"])
+        # max_references=8: thread root + last 6 existing + message_id
+        expected = [step.existing_tokens[0]] + step.existing_tokens[-6:] + [step.message_id]
+        assert found == expected, f"expected {expected}, got {found}"
 
     else:
         assert actions == [], f"{type(step).__name__}: expected no modifications, got {actions}"

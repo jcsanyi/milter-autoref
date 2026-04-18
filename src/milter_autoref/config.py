@@ -36,6 +36,8 @@ class Config:
     dry_run: bool
     log_level: int
     timeout: int
+    trim_references: bool
+    max_references: int
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -62,10 +64,29 @@ class Config:
                 f"Invalid integer for AUTOREF_TIMEOUT: {raw_timeout!r}"
             )
 
+        trim_references = _parse_bool(
+            os.environ.get("AUTOREF_TRIM_REFERENCES", "true"),
+            "AUTOREF_TRIM_REFERENCES",
+        )
+
+        raw_max_refs = os.environ.get("AUTOREF_MAX_REFERENCES", "20")
+        try:
+            max_references = int(raw_max_refs)
+        except ValueError:
+            raise ValueError(
+                f"Invalid integer for AUTOREF_MAX_REFERENCES: {raw_max_refs!r}"
+            )
+        if max_references <= 0:
+            raise ValueError(
+                f"AUTOREF_MAX_REFERENCES must be positive, got {max_references}"
+            )
+
         return cls(
             socket=socket,
             auth_only=auth_only,
             dry_run=dry_run,
             log_level=log_level,
             timeout=timeout,
+            trim_references=trim_references,
+            max_references=max_references,
         )

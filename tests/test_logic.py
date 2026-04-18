@@ -19,6 +19,8 @@ def _make_cfg(**overrides) -> Config:
         dry_run=False,
         log_level=20,
         timeout=600,
+        trim_references=True,
+        max_references=20,
     )
     base.update(overrides)
     return Config(**base)
@@ -140,6 +142,90 @@ class TestComputeNewReferences:
         lines = result.split("\r\n ")
         # Oversized token is on its own line, intact.
         assert long_tok in lines
+
+
+# ---------------------------------------------------------------------------
+# compute_new_references — trimming
+# ---------------------------------------------------------------------------
+
+
+class TestComputeNewReferencesTrimming:
+    def _tokens(self, n, start=0):
+        return [f"<msg-{start + i}@example.com>" for i in range(n)]
+
+    def test_no_trimming_when_disabled(self):
+        tokens = self._tokens(10)
+        existing = " ".join(tokens)
+        result = compute_new_references("<new@x.com>", existing, max_references=0)
+        assert "<msg-0@example.com>" in result
+        assert "<new@x.com>" in result
+        # All original tokens plus the new one should be present
+        import re
+        found = re.findall(r"<[^<>]+>", result)
+        assert len(found) == 11
+
+    def test_no_trimming_when_under_limit(self):
+        existing = "<a@x.com> <b@x.com>"
+        result = compute_new_references("<c@x.com>", existing, max_references=20)
+        assert result == "<a@x.com> <b@x.com> <c@x.com>"
+
+    def test_no_trimming_when_exactly_at_limit(self):
+        tokens = self._tokens(4)
+        existing = " ".join(tokens)
+        result = compute_new_references("<new@x.com>", existing, max_references=5)
+        import re
+        found = re.findall(r"<[^<>]+>", result)
+        assert len(found) == 5
+
+    def test_trims_to_limit(self):
+        tokens = self._tokens(10)
+        existing = " ".join(tokens)
+        result = compute_new_references("<new@x.com>", existing, max_references=5)
+        import re
+        found = re.findall(r"<[^<>]+>", result)
+        assert len(found) == 5
+
+    def test_keeps_thread_root_and_newest(self):
+        tokens = self._tokens(10)
+        existing = " ".join(tokens)
+        result = compute_new_references("<new@x.com>", existing, max_references=5)
+        import re
+        found = re.findall(r"<[^<>]+>", result)
+        # First token is the thread root
+        assert found[0] == "<msg-0@example.com>"
+        # Last token is the newly appended one
+        assert found[-1] == "<new@x.com>"
+
+    def test_drops_interior_tokens(self):
+        tokens = self._tokens(10)
+        existing = " ".join(tokens)
+        result = compute_new_references("<new@x.com>", existing, max_references=5)
+        import re
+        found = re.findall(r"<[^<>]+>", result)
+        # Should be: root, last 3 originals, new
+        assert found == [
+            "<msg-0@example.com>",
+            "<msg-7@example.com>",
+            "<msg-8@example.com>",
+            "<msg-9@example.com>",
+            "<new@x.com>",
+        ]
+
+    def test_max_references_2_keeps_root_and_newest(self):
+        tokens = self._tokens(5)
+        existing = " ".join(tokens)
+        result = compute_new_references("<new@x.com>", existing, max_references=2)
+        import re
+        found = re.findall(r"<[^<>]+>", result)
+        assert found == ["<msg-0@example.com>", "<new@x.com>"]
+
+    def test_max_references_1_keeps_only_newest(self):
+        tokens = self._tokens(5)
+        existing = " ".join(tokens)
+        result = compute_new_references("<new@x.com>", existing, max_references=1)
+        import re
+        found = re.findall(r"<[^<>]+>", result)
+        assert found == ["<new@x.com>"]
 
 
 # ---------------------------------------------------------------------------

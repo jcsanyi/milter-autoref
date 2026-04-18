@@ -53,9 +53,24 @@ def _fold_references(tokens: list[str]) -> str:
     return "\r\n ".join(lines)
 
 
+def _trim_references(tokens: list[str], max_refs: int) -> list[str]:
+    """Trim *tokens* to at most *max_refs* entries.
+
+    Keeps the first token (thread root) and the last *max_refs - 1* tokens
+    (most recent ancestors).  Returns *tokens* unchanged when *max_refs* is
+    zero (disabled) or the list is already within the limit.
+    """
+    if max_refs <= 0 or len(tokens) <= max_refs:
+        return tokens
+    if max_refs == 1:
+        return [tokens[-1]]
+    return [tokens[0]] + tokens[-(max_refs - 1):]
+
+
 def compute_new_references(
     message_id: Union[str, None],
     existing_references: Union[str, None],
+    max_references: int = 20,
 ) -> Union[str, None]:
     """Return the new value for the References header, or None if no change is needed.
 
@@ -83,6 +98,7 @@ def compute_new_references(
         return None
 
     tokens.append(mid)
+    tokens = _trim_references(tokens, max_references)
     return _fold_references(tokens)
 
 

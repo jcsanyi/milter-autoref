@@ -14,6 +14,8 @@ class TestConfigDefaults:
             "AUTOREF_DRY_RUN",
             "AUTOREF_LOG_LEVEL",
             "AUTOREF_TIMEOUT",
+            "AUTOREF_TRIM_REFERENCES",
+            "AUTOREF_MAX_REFERENCES",
         ):
             monkeypatch.delenv(key, raising=False)
 
@@ -23,6 +25,8 @@ class TestConfigDefaults:
         assert cfg.dry_run is False
         assert cfg.log_level == logging.INFO
         assert cfg.timeout == 600
+        assert cfg.trim_references is True
+        assert cfg.max_references == 20
 
 
 class TestConfigSocket:
@@ -89,4 +93,45 @@ class TestConfigTimeout:
     def test_non_integer_raises(self, monkeypatch):
         monkeypatch.setenv("AUTOREF_TIMEOUT", "fast")
         with pytest.raises(ValueError, match="AUTOREF_TIMEOUT"):
+            Config.from_env()
+
+
+class TestConfigTrimReferences:
+    @pytest.mark.parametrize("value", ["1", "true", "True", "yes", "on"])
+    def test_truthy_values(self, monkeypatch, value):
+        monkeypatch.setenv("AUTOREF_TRIM_REFERENCES", value)
+        cfg = Config.from_env()
+        assert cfg.trim_references is True
+
+    @pytest.mark.parametrize("value", ["0", "false", "False", "no", "off", ""])
+    def test_falsy_values(self, monkeypatch, value):
+        monkeypatch.setenv("AUTOREF_TRIM_REFERENCES", value)
+        cfg = Config.from_env()
+        assert cfg.trim_references is False
+
+    def test_invalid_bool_raises(self, monkeypatch):
+        monkeypatch.setenv("AUTOREF_TRIM_REFERENCES", "maybe")
+        with pytest.raises(ValueError, match="AUTOREF_TRIM_REFERENCES"):
+            Config.from_env()
+
+
+class TestConfigMaxReferences:
+    def test_custom_value(self, monkeypatch):
+        monkeypatch.setenv("AUTOREF_MAX_REFERENCES", "50")
+        cfg = Config.from_env()
+        assert cfg.max_references == 50
+
+    def test_non_integer_raises(self, monkeypatch):
+        monkeypatch.setenv("AUTOREF_MAX_REFERENCES", "lots")
+        with pytest.raises(ValueError, match="AUTOREF_MAX_REFERENCES"):
+            Config.from_env()
+
+    def test_zero_raises(self, monkeypatch):
+        monkeypatch.setenv("AUTOREF_MAX_REFERENCES", "0")
+        with pytest.raises(ValueError, match="AUTOREF_MAX_REFERENCES"):
+            Config.from_env()
+
+    def test_negative_raises(self, monkeypatch):
+        monkeypatch.setenv("AUTOREF_MAX_REFERENCES", "-1")
+        with pytest.raises(ValueError, match="AUTOREF_MAX_REFERENCES"):
             Config.from_env()

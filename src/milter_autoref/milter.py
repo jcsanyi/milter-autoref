@@ -90,7 +90,10 @@ class AutorefMilter(Milter.Base):
             )
             return Milter.CONTINUE
 
-        new_refs = compute_new_references(mid, self._references_last_value)
+        max_refs = self._cfg.max_references if self._cfg.trim_references else 0
+        new_refs = compute_new_references(
+            mid, self._references_last_value, max_refs
+        )
         if new_refs is None:
             self._log.debug("References already contains %s; no change needed", mid)
             return Milter.CONTINUE

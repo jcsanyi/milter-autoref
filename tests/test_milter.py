@@ -21,6 +21,8 @@ def _make_config(**overrides) -> Config:
         dry_run=False,
         log_level=logging.DEBUG,
         timeout=600,
+        trim_references=True,
+        max_references=20,
     )
     return Config(**{**defaults, **overrides})
 
@@ -285,6 +287,44 @@ class TestEomResetsState:
         # Should addheader (no References on this message), not chgheader
         m.addheader.assert_called_once_with("References", "<second@example.com>")
         m.chgheader.assert_not_called()
+
+
+class TestTrimReferences:
+    def test_trims_to_max_references(self):
+        m = _make_milter(config=_make_config(max_references=5))
+        tokens = [f"<msg-{i}@example.com>" for i in range(10)]
+        _drive(
+            m,
+            [
+                ("Message-ID", "<new@example.com>"),
+                ("References", " ".join(tokens)),
+            ],
+            macros=OUTGOING_MACROS,
+        )
+        m.chgheader.assert_called_once()
+        value = m.chgheader.call_args[0][2]
+        import re
+        found = re.findall(r"<[^<>]+>", value)
+        assert len(found) == 5
+        assert found[0] == "<msg-0@example.com>"
+        assert found[-1] == "<new@example.com>"
+
+    def test_no_trimming_when_disabled(self):
+        m = _make_milter(config=_make_config(trim_references=False))
+        tokens = [f"<msg-{i}@example.com>" for i in range(10)]
+        _drive(
+            m,
+            [
+                ("Message-ID", "<new@example.com>"),
+                ("References", " ".join(tokens)),
+            ],
+            macros=OUTGOING_MACROS,
+        )
+        m.chgheader.assert_called_once()
+        value = m.chgheader.call_args[0][2]
+        import re
+        found = re.findall(r"<[^<>]+>", value)
+        assert len(found) == 11  # all 10 originals + 1 new
 
 
 class TestAbortResetsState:

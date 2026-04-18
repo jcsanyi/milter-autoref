@@ -83,6 +83,8 @@ All configuration is via environment variables.
 | `AUTOREF_DRY_RUN` | `false` | Log intended header changes without applying them. |
 | `AUTOREF_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, or `ERROR`. |
 | `AUTOREF_TIMEOUT` | `600` | Milter timeout in seconds. |
+| `AUTOREF_TRIM_REFERENCES` | `true` | Trim the `References` header to at most `AUTOREF_MAX_REFERENCES` tokens, keeping the thread root and most recent ancestors. |
+| `AUTOREF_MAX_REFERENCES` | `20` | Maximum number of Message-ID tokens to keep in the `References` header when trimming is enabled. Must be a positive integer. |
 
 Boolean values accept: `1/true/yes/on` or `0/false/no/off` (case-insensitive).
 
