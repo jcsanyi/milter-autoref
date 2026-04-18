@@ -13,7 +13,7 @@ requires-python = ">=3.10"
 dependencies = ["pymilter>=1.0.5"]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0", "pytest-cov"]
+dev = ["pytest>=7.0", "pytest-cov", "miltertest>=1.0.0"]
 
 [project.scripts]
 milter-autoref = "milter_autoref.__main__:main"
