@@ -52,6 +52,27 @@ The codebase is split so that the core logic has no pymilter dependency:
 
 **Multiple `References` headers.** When more than one `References` header is present, we track the last one by its 1-based index and modify only that, leaving earlier ones untouched.
 
+## Versioning and releases
+
+The package version is derived from git tags via `setuptools-scm` — there is no hardcoded version string in the source. `__init__.py` reads the version at runtime from package metadata.
+
+The `.github/workflows/release.yml` workflow triggers on `v*` tag pushes, runs the test suite, and creates a GitHub Release using `--notes-from-tag` (the annotated tag message becomes the release body).
+
+Between releases, `setuptools-scm` generates dev versions like `0.1.1.dev3+g1a2b3c4` from the commit distance and hash. Never add a hardcoded version string to `pyproject.toml` or `__init__.py`.
+
+### Creating a release (agent instructions)
+
+When the user asks to create a release:
+
+1. Determine the new version (ask the user if not specified).
+2. Find the previous release tag: `git describe --tags --abbrev=0`.
+3. Read the commits since that tag: `git log <prev_tag>..HEAD --oneline`.
+4. Write a short summary (a few bullet points) of the most significant changes since that previous tag. Not every commit needs a bullet — group related changes and focus on what matters to someone using the milter. Start with a line like "Changes since v0.1.0:" to make the baseline clear.
+5. Create an annotated tag with the summary as the message: `git tag -a v<version> -m "<summary>"`.
+6. Push the tag: `git push origin v<version>`.
+
+The workflow handles the rest (tests + GitHub Release).
+
 ## Testing the milter class
 
 pymilter creates one `AutorefMilter` instance per SMTP connection and initialises `_protocol` via the C extension. To test callbacks directly without a real event loop, set `m._protocol = 0` after instantiation — this makes `@Milter.noreply`-decorated callbacks behave as transparent pass-throughs. See `tests/test_milter.py::_make_milter` for the pattern.
