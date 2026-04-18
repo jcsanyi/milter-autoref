@@ -22,6 +22,8 @@ from miltertest import constants as mc
 from milter_autoref.config import Config
 from milter_autoref.milter import AutorefMilter
 
+_MAX_EXAMPLES = int(os.environ.get("HYPOTHESIS_MAX_EXAMPLES", 100))
+
 
 # ---------------------------------------------------------------------------
 # Fixture
@@ -375,7 +377,7 @@ def _run_step(conn, step) -> None:
 
 
 class TestPropertyBased:
-    @settings(max_examples=100)
+    @settings(max_examples=_MAX_EXAMPLES)
     @given(steps=st.lists(_scenario, min_size=1, max_size=10))
     def test_random_message_sequences(self, milter_socket, steps):
         """Drive random sequences of typed message scenarios on a single connection.
