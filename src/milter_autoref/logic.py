@@ -74,7 +74,7 @@ def _trim_references(tokens: list[str], max_refs: int) -> list[str]:
 def compute_new_references(
     message_id: Union[str, None],
     existing_references: Union[str, None],
-    max_references: int = 20,
+    max_references: int,
 ) -> Union[str, None]:
     """Return the new value for the References header, or None if no change is needed.
 
