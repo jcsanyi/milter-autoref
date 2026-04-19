@@ -51,6 +51,8 @@ If you don't have `pipx`, install it with your OS package manager
 
 ## Docker
 
+The image is published at [hub.docker.com/r/jcsanyi/milter-autoref](https://hub.docker.com/r/jcsanyi/milter-autoref).
+
 Run with Docker:
 
 ```
