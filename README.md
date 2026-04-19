@@ -144,11 +144,13 @@ submission inet n       -       n       -       -       smtpd
 ```
 
 Ensure the SASL auth macros are exported to milters so the default
-`AUTOREF_AUTH_ONLY=true` can see them:
+`AUTOREF_AUTH_ONLY=true` can see them. `milter_mail_macros` must include
+*at least* `{auth_type}` and `{auth_authen}`; any additional macros you
+already export for other milters are fine to leave in place.
 
 ```
 # /etc/postfix/main.cf
-milter_mail_macros = i {auth_type} {auth_authen} {mail_addr}
+milter_mail_macros = i {auth_type} {auth_authen}
 ```
 
 ### Alternative: wire globally with the default auth-only gate
@@ -162,7 +164,7 @@ inbound MX traffic passes through untouched because `{auth_type}` and
 # /etc/postfix/main.cf
 smtpd_milters = unix:/tmp/milter-autoref.sock
 milter_default_action = accept
-milter_mail_macros = i {auth_type} {auth_authen} {mail_addr}
+milter_mail_macros = i {auth_type} {auth_authen}
 ```
 
 ### When to set AUTOREF_AUTH_ONLY=false

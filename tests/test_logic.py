@@ -1,5 +1,7 @@
 """Tests for milter_autoref.logic — pure functions, no pymilter dependency."""
 
+import re
+
 import pytest
 
 from milter_autoref.config import Config
@@ -159,7 +161,6 @@ class TestComputeNewReferencesTrimming:
         assert "<msg-0@example.com>" in result
         assert "<new@x.com>" in result
         # All original tokens plus the new one should be present
-        import re
         found = re.findall(r"<[^<>]+>", result)
         assert len(found) == 11
 
@@ -172,7 +173,6 @@ class TestComputeNewReferencesTrimming:
         tokens = self._tokens(4)
         existing = " ".join(tokens)
         result = compute_new_references("<new@x.com>", existing, max_references=5)
-        import re
         found = re.findall(r"<[^<>]+>", result)
         assert len(found) == 5
 
@@ -180,7 +180,6 @@ class TestComputeNewReferencesTrimming:
         tokens = self._tokens(10)
         existing = " ".join(tokens)
         result = compute_new_references("<new@x.com>", existing, max_references=5)
-        import re
         found = re.findall(r"<[^<>]+>", result)
         assert len(found) == 5
 
@@ -188,7 +187,6 @@ class TestComputeNewReferencesTrimming:
         tokens = self._tokens(10)
         existing = " ".join(tokens)
         result = compute_new_references("<new@x.com>", existing, max_references=5)
-        import re
         found = re.findall(r"<[^<>]+>", result)
         # First token is the thread root
         assert found[0] == "<msg-0@example.com>"
@@ -199,7 +197,6 @@ class TestComputeNewReferencesTrimming:
         tokens = self._tokens(10)
         existing = " ".join(tokens)
         result = compute_new_references("<new@x.com>", existing, max_references=5)
-        import re
         found = re.findall(r"<[^<>]+>", result)
         # Should be: root, last 3 originals, new
         assert found == [
@@ -214,7 +211,6 @@ class TestComputeNewReferencesTrimming:
         tokens = self._tokens(5)
         existing = " ".join(tokens)
         result = compute_new_references("<new@x.com>", existing, max_references=2)
-        import re
         found = re.findall(r"<[^<>]+>", result)
         assert found == ["<msg-0@example.com>", "<new@x.com>"]
 
@@ -222,7 +218,6 @@ class TestComputeNewReferencesTrimming:
         tokens = self._tokens(5)
         existing = " ".join(tokens)
         result = compute_new_references("<new@x.com>", existing, max_references=1)
-        import re
         found = re.findall(r"<[^<>]+>", result)
         assert found == ["<new@x.com>"]
 

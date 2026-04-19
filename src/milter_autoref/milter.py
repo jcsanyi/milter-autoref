@@ -29,7 +29,6 @@ class AutorefMilter(Milter.Base):
         self._outgoing: bool = False
         self._message_id_value: str | None = None
         self._references_count: int = 0
-        self._references_last_index: int = 0
         self._references_last_value: str | None = None
 
     # ------------------------------------------------------------------
@@ -66,7 +65,6 @@ class AutorefMilter(Milter.Base):
             self._message_id_value = value  # last one wins
         elif lname == "references":
             self._references_count += 1
-            self._references_last_index = self._references_count
             self._references_last_value = value
         return Milter.CONTINUE
 
@@ -124,12 +122,21 @@ class AutorefMilter(Milter.Base):
                 self._log.info("addheader References=%r", new_refs)
                 self.addheader("References", new_refs)
             else:
+                # chgheader index is 1-based; _references_count equals the index
+                # of the last References header we saw, which is the one we
+                # modify — earlier duplicates (if any) are left untouched.
                 self._log.info(
-                    "chgheader References[%d]=%r", self._references_last_index, new_refs
+                    "chgheader References[%d]=%r", self._references_count, new_refs
                 )
-                self.chgheader("References", self._references_last_index, new_refs)
+                self.chgheader("References", self._references_count, new_refs)
         except Exception as exc:
-            self._log.warning("header modification failed: %s", exc)
+            # Fail open: log and continue. This milter's job (fixing thread
+            # continuity through SES) is best-effort — rejecting or deferring
+            # legitimate mail because we couldn't tweak a header would be
+            # worse than shipping it with the original (broken) threading.
+            # Logged at ERROR because it represents us silently failing to
+            # do our job, not an upstream quirk.
+            self._log.error("header modification failed: %s", exc)
 
         return Milter.CONTINUE
 

@@ -10,7 +10,7 @@ Never run `git commit` or `git push` without an explicit instruction in the curr
 
 ## Commands
 
-All commands use the virtualenv binaries directly (no need to activate the venv first).
+All commands use the virtualenv binaries directly (no need to activate the venv first). This is intentional — the direct-path form (`.venv/bin/pytest`) can be whitelisted in Claude Code permission settings, whereas a `source .venv/bin/activate && pytest` pipeline cannot. README.md uses the `source` idiom because it targets human contributors; don't "reconcile" the two.
 
 ```bash
 # Install with dev dependencies (requires libmilter C library to be installed first)
@@ -47,7 +47,7 @@ The codebase is split so that the core logic has no pymilter dependency:
 
 ## Key design decisions
 
-**Fail-closed outgoing detection.** A message is only modified if at least one signal identifies it as outgoing: `{daemon_name}` macro in the configured set, SASL auth macros present (if `AUTOREF_TRUST_AUTH=true`), or `{client_addr}` within a configured CIDR. All macros are read in `envfrom()`. If nothing matches, the message is passed through untouched — a false positive on incoming mail would wrongly modify someone else's `References`.
+**Fail-closed outgoing detection.** By default (`AUTOREF_AUTH_ONLY=true`), a message is only modified if at least one SASL auth macro (`{auth_type}` or `{auth_authen}`) is set in `envfrom()` — authenticated mail is the only signal we trust. When `AUTOREF_AUTH_ONLY=false`, every message is treated as outgoing, and it's the operator's responsibility to scope the milter to outbound-only traffic via `master.cf`. A false positive on incoming mail would wrongly rewrite someone else's `References`, so the default stays fail-closed.
 
 **`Message-ID` may not be visible.** Postfix's `cleanup(8)` adds `Message-ID` to messages that lack one *after* milters run, so we never see it at `eom()`. This is correct — SES can only break threading on messages where the client set a `Message-ID` in the first place.
 

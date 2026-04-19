@@ -57,8 +57,12 @@ def _trim_references(tokens: list[str], max_refs: int) -> list[str]:
     """Trim *tokens* to at most *max_refs* entries.
 
     Keeps the first token (thread root) and the last *max_refs - 1* tokens
-    (most recent ancestors).  Returns *tokens* unchanged when *max_refs* is
-    zero (disabled) or the list is already within the limit.
+    (most recent ancestors). As a special case, *max_refs == 1* keeps only
+    the last token — this function is called after the new Message-ID has
+    been appended, so the last token is always the self-reference this
+    milter exists to add, and dropping it would defeat the purpose.
+    Returns *tokens* unchanged when *max_refs* is zero (disabled) or the
+    list is already within the limit.
     """
     if max_refs <= 0 or len(tokens) <= max_refs:
         return tokens
