@@ -53,6 +53,8 @@ The codebase is split so that the core logic has no pymilter dependency:
 
 **Multiple `References` headers.** When more than one `References` header is present, we track the last one by its 1-based index and modify only that, leaving earlier ones untouched.
 
+ **Dockerfile intentional omissions.** The image omits `EXPOSE` and `HEALTHCHECK` deliberately. The image targets container-to-container deployment where `EXPOSE` is metadata-only and doesn't affect   connectivity — any external consumer who needs the port can read the `ENV AUTOREF_SOCKET=` line. A `HEALTHCHECK` baked into the image would be fragile because `AUTOREF_SOCKET` is operator-configurable (unix path vs `inet:port`), so a check hardcoded for the default breaks on override; orchestrators (compose/k8s) should define their own liveness probes. Don't "add the missing EXPOSE/HEALTHCHECK" — they were considered and rejected.                                                                                                                                             
+
 ## Versioning and releases
 
 The package version is derived from git tags via `setuptools-scm` — there is no hardcoded version string in the source. `__init__.py` reads the version at runtime from package metadata.
