@@ -10,27 +10,28 @@ Never run `git commit` or `git push` without an explicit instruction in the curr
 
 ## Commands
 
+All commands use the virtualenv binaries directly (no need to activate the venv first).
+
 ```bash
 # Install with dev dependencies (requires libmilter C library to be installed first)
 python -m venv .venv
-source .venv/bin/activate
-pip install -e '.[dev]'
+.venv/bin/pip install -e '.[dev]'
 
 # Run all tests
-pytest
+.venv/bin/pytest
 
 # Run a single test file
-pytest tests/test_logic.py
+.venv/bin/pytest tests/test_logic.py
 
 # Run a single test by name
-pytest tests/test_milter.py::TestOutgoingWithExistingReferences::test_chgheader_called_with_correct_index
+.venv/bin/pytest tests/test_milter.py::TestOutgoingWithExistingReferences::test_chgheader_called_with_correct_index
 
 # Run the milter (dry-run mode recommended for first use)
-AUTOREF_DRY_RUN=true AUTOREF_LOG_LEVEL=DEBUG milter-autoref
+AUTOREF_DRY_RUN=true AUTOREF_LOG_LEVEL=DEBUG .venv/bin/milter-autoref
 
 # Run the property-based integration test with deeper exploration
 # (run this locally after significant changes to milter.py or logic.py)
-HYPOTHESIS_MAX_EXAMPLES=1000 pytest tests/test_integration.py::TestPropertyBased::test_random_message_sequences -v
+HYPOTHESIS_MAX_EXAMPLES=1000 .venv/bin/pytest tests/test_integration.py::TestPropertyBased::test_random_message_sequences -v
 ```
 
 `libmilter` is a system package (`libmilter` on Arch, `libmilter-dev` on Debian/Ubuntu, `sendmail-devel` on RHEL) and must be installed before `pymilter` can be built.
