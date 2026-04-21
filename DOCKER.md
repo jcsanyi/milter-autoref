@@ -30,12 +30,15 @@ reply correctly.
 docker run -d --name milter-autoref -p 8890:8890 jcsanyi/milter-autoref:latest
 ```
 
-Then configure Postfix to use the milter:
+Then configure Postfix to use the milter. `milter_mail_macros` must
+include *at least* `{auth_type}` and `{auth_authen}` so the default
+`AUTOREF_AUTH_ONLY=true` can see them; any additional macros you already
+export for other milters are fine to leave in place.
 
 ```
 # /etc/postfix/main.cf
 smtpd_milters = inet:localhost:8890
-milter_mail_macros = i {auth_type} {auth_authen} {mail_addr}
+milter_mail_macros = i {auth_type} {auth_authen}
 ```
 
 ## Docker Compose
@@ -71,7 +74,7 @@ All configuration is via environment variables.
 
 ## DKIM and milter ordering
 
-If you use SES Easy DKIM (the default — no local DKIM milter), SES signs
+If you use SES Easy DKIM (the default - no local DKIM milter), SES signs
 the message after milter-autoref has already run, so no special handling
 is needed.
 
@@ -83,7 +86,7 @@ afterwards the signature will fail at the recipient. In Postfix,
 
 ```
 # /etc/postfix/main.cf
-smtpd_milters = unix:/tmp/milter-autoref.sock, inet:localhost:8891
+smtpd_milters = inet:milter-autoref:8890, inet:opendkim:8891
 ```
 
 ## Source

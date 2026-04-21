@@ -35,19 +35,19 @@ of the following:
 - In **Gmail**, the reply shows up on its own rather than joining the
   existing conversation
 - In **Thunderbird**, **Outlook**, or **Apple Mail**, the threaded view
-  is broken — the first reply looks unthreaded
+  is broken - the first reply looks unthreaded
 - In a self-hosted **customer support** or **helpdesk** system, replies
   from customers create **new tickets** instead of being matched back to
   the original
-- Only the sender side is affected — your recipients' mail clients
+- Only the sender side is affected - your recipients' mail clients
   thread replies fine
 
 The following relays are known or reported to rewrite `Message-ID` on
 outgoing mail, and may benefit from this milter:
 
-- **AWS SES** — rewrites by default
-- **Postmark** — rewrites by default; preserve with the `X-PM-KeepID: true` SMTP header
-- **SendGrid**, **Mailgun**, and **Brevo** (formerly **Sendinblue**) — similar behavior reported
+- **AWS SES** - rewrites by default
+- **Postmark** - rewrites by default; preserve with the `X-PM-KeepID: true` SMTP header
+- **SendGrid**, **Mailgun**, and **Brevo** (formerly **Sendinblue**) - similar behaviour reported
 
 ## Requirements
 
@@ -79,6 +79,29 @@ pipx install .
 If you don't have `pipx`, install it with your OS package manager
 (`python-pipx` on Arch, `pipx` on Debian/Ubuntu) or via `pip install pipx`.
 
+## Running
+
+```
+milter-autoref
+```
+
+Or:
+
+```
+python -m milter_autoref
+```
+
+The milter listens on `AUTOREF_SOCKET` (default:
+`/tmp/milter-autoref.sock`) and blocks until it receives SIGTERM or
+SIGINT.
+
+For a first deployment, start with dry-run mode to verify the intended header
+changes without applying them:
+
+```
+AUTOREF_DRY_RUN=true AUTOREF_LOG_LEVEL=DEBUG milter-autoref
+```
+
 ## Docker
 
 The image is published at <https://hub.docker.com/r/jcsanyi/milter-autoref>.
@@ -109,36 +132,13 @@ instead: `smtpd_milters = inet:milter-autoref:8890`.
 All configuration is via environment variables (see Configuration below),
 passed with `-e` or via the `environment` key in `docker-compose.yml`.
 
-## Running
-
-```
-milter-autoref
-```
-
-Or:
-
-```
-python -m milter_autoref
-```
-
-The milter listens on `AUTOREF_SOCKET` (default:
-`/tmp/milter-autoref.sock`) and blocks until it receives SIGTERM or
-SIGINT.
-
-For a first deployment, start with dry-run mode to verify the intended header
-changes without applying them:
-
-```
-AUTOREF_DRY_RUN=true AUTOREF_LOG_LEVEL=DEBUG milter-autoref
-```
-
 ## Configuration
 
 All configuration is via environment variables.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| **AUTOREF_SOCKET** | /tmp/milter-autoref.sock | Socket to listen on. Unix path, `inet:port@host`, or `inet6:port@host`. Note that the Docker image defaults to inet:8890 instead of the file-based socket. |
+| **AUTOREF_SOCKET** | /tmp/milter-autoref.sock | Socket to listen on. Unix path, `inet:port@host`, or `inet6:port@host`. Note that the Docker image defaults to `inet:8890` instead of the file-based socket. |
 | **AUTOREF_AUTH_ONLY** | true | Only rewrite messages that authenticated via SASL (`{auth_type}` or `{auth_authen}` set). Set to `false` if you've scoped the milter to outbound-only traffic via `master.cf`. |
 | **AUTOREF_DRY_RUN** | false | Log intended header changes without applying them. |
 | **AUTOREF_LOG_LEVEL** | INFO | `DEBUG`, `INFO`, `WARNING`, or `ERROR`. |
@@ -159,8 +159,8 @@ AUTOREF_LOG_LEVEL=INFO
 
 ### Recommended: scope the milter to the submission service
 
-The simplest deployment pattern — and the one Postfix's own
-`SMTPD_MILTER_README` recommends — is to attach the milter only to the
+The simplest deployment pattern - and the one Postfix's own
+`SMTPD_MILTER_README` recommends - is to attach the milter only to the
 submission service via a per-service `-o smtpd_milters=` override in
 `/etc/postfix/master.cf`:
 
@@ -200,7 +200,7 @@ milter_mail_macros = i {auth_type} {auth_authen}
 ### When to set AUTOREF_AUTH_ONLY=false
 
 Disable the auth gate only when you've already restricted the milter to
-outbound-only traffic at the MTA layer — for example, when your submission
+outbound-only traffic at the MTA layer - for example, when your submission
 service relies on IP allowlisting (`permit_mynetworks`) rather than SASL,
 and some legitimate outgoing messages arrive without auth macros set. In
 that case, scope the milter per-service in `master.cf` and set
@@ -214,7 +214,7 @@ gate.
 
 ## DKIM and milter ordering
 
-If you use SES Easy DKIM (the default — no local DKIM milter), SES signs
+If you use SES Easy DKIM (the default - no local DKIM milter), SES signs
 the message after milter-autoref has already run, so no special handling
 is needed.
 
@@ -234,7 +234,7 @@ smtpd_milters = unix:/tmp/milter-autoref.sock, inet:localhost:8891
 * **Message-ID must be set by the client.** Postfix's `cleanup(8)` daemon
   adds a `Message-ID` to messages that don't have one, but it does this
   *after* milters run. If your mail client doesn't set a `Message-ID`,
-  milter-autoref will log an INFO message and skip the modification —
+  milter-autoref will log an INFO message and skip the modification -
   that's correct behaviour. A client that didn't set a Message-ID in the
   first place has no ID in its Sent folder to match replies against, so
   threading would already be broken regardless of what any relay does
@@ -251,9 +251,9 @@ pytest
 
 The test suite has three layers:
 
-- **`tests/test_logic.py`** — pure header-manipulation functions; no `libmilter` required.
-- **`tests/test_milter.py`** — full callback chain with the pymilter API mocked out.
-- **`tests/test_integration.py`** — live milter over a real Unix socket using [`miltertest`](https://pypi.org/project/miltertest/). Includes a [Hypothesis](https://hypothesis.readthedocs.io/) property-based test that generates random multi-message sequences on a single connection to catch unanticipated state-leakage bugs.
+- **`tests/test_logic.py`** - pure header-manipulation functions; no `libmilter` required.
+- **`tests/test_milter.py`** - full callback chain with the pymilter API mocked out.
+- **`tests/test_integration.py`** - live milter over a real Unix socket using [`miltertest`](https://pypi.org/project/miltertest/). Includes a [Hypothesis](https://hypothesis.readthedocs.io/) property-based test that generates random multi-message sequences on a single connection to catch unanticipated state-leakage bugs.
 
 For deeper exploration of the property-based test (e.g. before shipping significant changes to `milter.py` or `logic.py`):
 
