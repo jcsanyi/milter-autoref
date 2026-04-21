@@ -24,12 +24,42 @@ to the `References` header. The recipient's reply will then include both the ori
 rewritten IDs in `References`, allowing your client to find the original and thread the
 reply correctly.
 
+## Symptoms
+
+Consider this milter if you run a **self-hosted Postfix** instance with outgoing
+mail routed through AWS SES (or a similar relay), and you're seeing any
+of the following:
+
+- Replies to your sent messages appear as **new threads** or **new
+  conversations** instead of continuing the original
+- In **Gmail**, the reply shows up on its own rather than joining the
+  existing conversation
+- In **Thunderbird**, **Outlook**, or **Apple Mail**, the threaded view
+  is broken — the first reply looks unthreaded
+- In a self-hosted **customer support** or **helpdesk** system, replies
+  from customers create **new tickets** instead of being matched back to
+  the original
+- Only the sender side is affected — your recipients' mail clients
+  thread replies fine
+
+The following relays are known or reported to rewrite `Message-ID` on
+outgoing mail, and may benefit from this milter:
+
+- **AWS SES** — rewrites by default
+- **Postmark** — rewrites by default; preserve with the `X-PM-KeepID: true` SMTP header
+- **SendGrid**, **Mailgun**, and **Brevo** (formerly **Sendinblue**) — similar behavior reported
+
 ## Requirements
 
 - Python ≥ 3.10
 - `libmilter` (C library, e.g. `libmilter` on Arch, `libmilter-dev` on
   Debian/Ubuntu, or install `sendmail-devel` on RHEL)
 - Postfix
+
+The milter protocol originated in Sendmail and is supported by several
+MTAs, but this milter has only been tested with Postfix. If you've run
+it successfully against another MTA, please open an issue or PR so this
+note can be updated.
 
 ## Installation
 
