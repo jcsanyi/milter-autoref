@@ -2,6 +2,10 @@
 
 This file provides guidance to AI coding agents working in this repository.
 
+## Persistent memory
+
+Before writing to persistent memory (e.g. the Claude Code per-project memory store), consider whether the guidance belongs in this file instead. AGENTS.md is checked in, visible to human contributors, and shared across every agent session; per-agent memory is none of those things. If a rule is repo-wide and durable rather than personal to one user or session, recommend adding it to AGENTS.md and wait for approval before either saving the memory or editing this file.
+
 ## Commits
 
 Do not add AI agent attribution to commits (no `Co-Authored-By` lines). The user owns all code in this repository.

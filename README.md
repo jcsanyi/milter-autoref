@@ -1,19 +1,19 @@
 # milter-autoref
 
 A Postfix milter that appends the current message's `Message-ID` value to the `References`
-header for outgoing messages - fixing email threading that's broken by mail relays like AWS SES rewriting the
-`Message-ID` header.
+header for outgoing messages - fixing email threading that's broken by mail relays that
+rewrite the `Message-ID` header.
 
 **au·to** /ˈɔː.toʊ/ *prefix*
-1. **self** - referring to oneself
-2. **automatic** - happening without any manual intervention
+1. **automatic** - happening without any manual intervention
+2. **self** - referring to oneself
 
-The `autoref` name relies on both meanings: this milter *automatically* adds a *self-reference*
-to every outgoing message.
+The `autoref` name refers to both meanings: this milter *automatically* adds a reference
+to *itself* to every outgoing message.
 
-## The problem this solves
+## Why?
 
-Some mail relays rewrite the `Message-ID` header on every
+Some mail relays (like AWS SES) rewrite the `Message-ID` header on every
 message they handle. When a recipient replies, their mail client puts the
 relay's rewritten ID in `In-Reply-To` and `References` - but your mail client
 only knows about the original ID. It can't match anything in the `References`
@@ -21,7 +21,7 @@ header to an existing message, so the first reply appears unthreaded.
 
 Before the message leaves Postfix, this milter will append the current `Message-ID`
 to the `References` header. The recipient's reply will then include both the original and
-rewritten IDs in `References`, allowing your client to find the original and  thread the
+rewritten IDs in `References`, allowing your client to find the original and thread the
 reply correctly.
 
 ## Requirements
@@ -51,7 +51,7 @@ If you don't have `pipx`, install it with your OS package manager
 
 ## Docker
 
-The image is published at [hub.docker.com/r/jcsanyi/milter-autoref](https://hub.docker.com/r/jcsanyi/milter-autoref).
+The image is published at [https://hub.docker.com/r/jcsanyi/milter-autoref](https://hub.docker.com/r/jcsanyi/milter-autoref).
 
 Run with Docker:
 
@@ -108,7 +108,7 @@ All configuration is via environment variables.
 
 | Variable | Default | Description |
 |---|---|---|
-| **AUTOREF_SOCKET** | /tmp/milter-autoref.sock | Socket to listen on. Unix path, `inet:port@host`, or `inet6:port@host`. |
+| **AUTOREF_SOCKET** | /tmp/milter-autoref.sock | Socket to listen on. Unix path, `inet:port@host`, or `inet6:port@host`. Note that the Docker image defaults to inet:8890 instead of the file-based socket.  |
 | **AUTOREF_AUTH_ONLY** | true | Only rewrite messages that authenticated via SASL (`{auth_type}` or `{auth_authen}` set). Set to `false` if you've scoped the milter to outbound-only traffic via `master.cf`. |
 | **AUTOREF_DRY_RUN** | false | Log intended header changes without applying them. |
 | **AUTOREF_LOG_LEVEL** | INFO | `DEBUG`, `INFO`, `WARNING`, or `ERROR`. |
