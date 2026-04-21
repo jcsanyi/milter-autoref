@@ -61,13 +61,30 @@ If Postfix runs on the host, add `ports: ["8890:8890"]` and use:
 All configuration is via environment variables.
 
 | Variable | Default | Description |
-|---|---|---|
+| --- | --- | --- |
 | **AUTOREF_SOCKET** | inet:8890@0.0.0.0 | Socket to listen on. Override to use a Unix socket or different port. |
 | **AUTOREF_AUTH_ONLY** | true | Only rewrite messages with SASL authentication. Set to `false` if scoped to outbound-only traffic. |
 | **AUTOREF_DRY_RUN** | false | Log intended changes without applying them. |
 | **AUTOREF_LOG_LEVEL** | INFO | `DEBUG`, `INFO`, `WARNING`, or `ERROR`. |
 | **AUTOREF_TRIM_REFERENCES** | true | Trim `References` to at most `AUTOREF_MAX_REFERENCES` tokens. |
-| **AUTOREF_MAX_REFERENCES** | 20 | Maximum tokens to keep in `References` when trimming. |
+| **AUTOREF_MAX_REFERENCES** | 20 | Maximum tokens to keep in `References` when trimming. The self-reference is always preserved; trimming keeps the thread root and the most recent N-1 entries. Setting to `1` discards the thread root. |
+
+## DKIM and milter ordering
+
+If you use SES Easy DKIM (the default — no local DKIM milter), SES signs
+the message after milter-autoref has already run, so no special handling
+is needed.
+
+If your MTA signs with a local DKIM milter (e.g. OpenDKIM) before
+forwarding to SES, milter-autoref must appear before it in `smtpd_milters`.
+OpenDKIM signs `References` by default, and if milter-autoref modifies it
+afterwards the signature will fail at the recipient. In Postfix,
+`smtpd_milters` runs left-to-right, so list milter-autoref first:
+
+```
+# /etc/postfix/main.cf
+smtpd_milters = unix:/tmp/milter-autoref.sock, inet:localhost:8891
+```
 
 ## Source
 

@@ -51,7 +51,7 @@ If you don't have `pipx`, install it with your OS package manager
 
 ## Docker
 
-The image is published at [https://hub.docker.com/r/jcsanyi/milter-autoref](https://hub.docker.com/r/jcsanyi/milter-autoref).
+The image is published at <https://hub.docker.com/r/jcsanyi/milter-autoref>.
 
 Run with Docker:
 
@@ -107,13 +107,13 @@ AUTOREF_DRY_RUN=true AUTOREF_LOG_LEVEL=DEBUG milter-autoref
 All configuration is via environment variables.
 
 | Variable | Default | Description |
-|---|---|---|
-| **AUTOREF_SOCKET** | /tmp/milter-autoref.sock | Socket to listen on. Unix path, `inet:port@host`, or `inet6:port@host`. Note that the Docker image defaults to inet:8890 instead of the file-based socket.  |
+| --- | --- | --- |
+| **AUTOREF_SOCKET** | /tmp/milter-autoref.sock | Socket to listen on. Unix path, `inet:port@host`, or `inet6:port@host`. Note that the Docker image defaults to inet:8890 instead of the file-based socket. |
 | **AUTOREF_AUTH_ONLY** | true | Only rewrite messages that authenticated via SASL (`{auth_type}` or `{auth_authen}` set). Set to `false` if you've scoped the milter to outbound-only traffic via `master.cf`. |
 | **AUTOREF_DRY_RUN** | false | Log intended header changes without applying them. |
 | **AUTOREF_LOG_LEVEL** | INFO | `DEBUG`, `INFO`, `WARNING`, or `ERROR`. |
 | **AUTOREF_TRIM_REFERENCES** | true | Trim the `References` header to at most `AUTOREF_MAX_REFERENCES` tokens, keeping the thread root and most recent ancestors. |
-| **AUTOREF_MAX_REFERENCES** | 20 | Maximum number of Message-ID tokens to keep in the `References` header when trimming is enabled. Must be a positive integer. |
+| **AUTOREF_MAX_REFERENCES** | 20 | Maximum number of Message-ID tokens to keep in the `References` header when trimming is enabled. Must be a positive integer. The newly-appended self-reference is always preserved; trimming drops middle ancestors while keeping the thread root and the most recent N-1 entries. Setting this to `1` discards the thread root (only the self-reference remains), which can break threading in archive tools that anchor on root-ID. |
 
 Boolean values accept: `1/true/yes/on` or `0/false/no/off` (case-insensitive).
 
@@ -176,14 +176,39 @@ and some legitimate outgoing messages arrive without auth macros set. In
 that case, scope the milter per-service in `master.cf` and set
 `AUTOREF_AUTH_ONLY=false`.
 
-### Caveats
+Note that local pickup also does not authenticate via SASL. Messages
+submitted via `sendmail -t` from cron jobs, monitoring scripts, `mail(1)`,
+and similar sources will be skipped by default. If you want those messages
+to be rewritten too, scope the milter appropriately and disable the auth
+gate.
 
-- **Message-ID must be set by the client.** Postfix's `cleanup(8)` daemon
+## DKIM and milter ordering
+
+If you use SES Easy DKIM (the default — no local DKIM milter), SES signs
+the message after milter-autoref has already run, so no special handling
+is needed.
+
+If your MTA signs with a local DKIM milter (e.g. OpenDKIM) before
+forwarding to SES, milter-autoref must appear before it in `smtpd_milters`.
+OpenDKIM signs `References` by default, and if milter-autoref modifies it
+afterwards the signature will fail at the recipient. In Postfix,
+`smtpd_milters` runs left-to-right, so list milter-autoref first:
+
+```
+# /etc/postfix/main.cf
+smtpd_milters = unix:/tmp/milter-autoref.sock, inet:localhost:8891
+```
+
+## Caveats
+
+* **Message-ID must be set by the client.** Postfix's `cleanup(8)` daemon
   adds a `Message-ID` to messages that don't have one, but it does this
   *after* milters run. If your mail client doesn't set a `Message-ID`,
-  milter-autoref will log an INFO message and skip the modification - that's
-  correct behaviour, since threading is only affected on messages where the
-  relay rewrote a `Message-ID` that the client originally set.
+  milter-autoref will log an INFO message and skip the modification —
+  that's correct behaviour. A client that didn't set a Message-ID in the
+  first place has no ID in its Sent folder to match replies against, so
+  threading would already be broken regardless of what any relay does
+  downstream.
 
 ## Development
 
