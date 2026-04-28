@@ -1,3 +1,9 @@
 title: milter-autoref
 description: A Postfix milter that fixes email threading broken by mail relays like AWS SES
 theme: jekyll-theme-cayman
+
+defaults:
+  - scope:
+      path: ""
+    values:
+      canonical_url: "https://github.com/jcsanyi/milter-autoref"
