@@ -6,11 +6,23 @@ This file provides guidance to AI coding agents working in this repository.
 
 Before writing to persistent memory (e.g. the Claude Code per-project memory store), consider whether the guidance belongs in this file instead. AGENTS.md is checked in, visible to human contributors, and shared across every agent session; per-agent memory is none of those things. If a rule is repo-wide and durable rather than personal to one user or session, recommend adding it to AGENTS.md and wait for approval before either saving the memory or editing this file.
 
-## Commits
+## Commits and branches
 
-Do not add AI agent attribution to commits (no `Co-Authored-By` lines). The user owns all code in this repository.
+Do not add AI agent attribution to anything. This applies to commits (no `Co-Authored-By` lines and no session trailers), pull request titles and descriptions, issues, comments, and docs. The user owns all code in this repository.
 
 Never run `git commit` or `git push` without an explicit instruction in the current message to do so. Completing a task does not constitute permission to commit — each commit requires a fresh explicit request. If changes are ready, say so and stop.
+
+`main` is reviewed code and accepts changes only through a pull request. Every change happens on its own feature branch, cut from `main`. Name the branch for the change.
+
+Once a change has been completed and tested, the user will request that you create a PR for merging the changes to `main`. A request to create a PR also authorizes pushing the feature branch. "Issues and pull requests" below says what the description holds. For a squash-merged PR, the title will become the whole commit message on `main`: GitHub adds the PR number to the end, for example `(#123)`, and leaves the description out of the commit. Keep the title short, and make sure that it stands alone. Occasionally, the user may ask to set up the PR for a rebase merge instead. In that case, each commit lands on `main` as it is, so each commit message is permanent. Propose a logical order and a message for each of the final commits, and offer to rebase the branch to set it up.
+
+## Issues and pull requests
+
+Keep them short. A reader must be able to learn what to do and why it matters, and no more.
+
+An issue says what is wrong or missing, why it matters, and what a fix looks like if that is known. Aim for less than 200 words, unless the issue must explain something that the reader cannot get from the code. Do not explain how the code works now: the reader will read the code. Do not list the steps of the work or a test plan, unless a step is one that a person would get wrong.
+
+A pull request description says why the change was made and what a person will see that is different. Aim for less than 200 words. Do not retell how the branch got to its final form. That is in the commits on the pull request.
 
 ## Commands
 
@@ -57,7 +69,13 @@ The codebase is split so that the core logic has no pymilter dependency:
 
 **Multiple `References` headers.** When more than one `References` header is present, we track the last one by its 1-based index and modify only that, leaving earlier ones untouched.
 
- **Dockerfile intentional omissions.** The image omits `EXPOSE` and `HEALTHCHECK` deliberately. The image targets container-to-container deployment where `EXPOSE` is metadata-only and doesn't affect   connectivity — any external consumer who needs the port can read the `ENV AUTOREF_SOCKET=` line. A `HEALTHCHECK` baked into the image would be fragile because `AUTOREF_SOCKET` is operator-configurable (unix path vs `inet:port`), so a check hardcoded for the default breaks on override; orchestrators (compose/k8s) should define their own liveness probes. Don't "add the missing EXPOSE/HEALTHCHECK" — they were considered and rejected.                                                                                                                                             
+**Dockerfile intentional omissions.** The image omits `EXPOSE` and `HEALTHCHECK` deliberately. The image targets container-to-container deployment where `EXPOSE` is metadata-only and doesn't affect connectivity — any external consumer who needs the port can read the `ENV AUTOREF_SOCKET=` line. A `HEALTHCHECK` baked into the image would be fragile because `AUTOREF_SOCKET` is operator-configurable (unix path vs `inet:port`), so a check hardcoded for the default breaks on override; orchestrators (compose/k8s) should define their own liveness probes. Don't "add the missing EXPOSE/HEALTHCHECK" — they were considered and rejected.
+
+## Discoverability
+
+The Symptoms section of `README.md` is the only place for symptom vocabulary. Symptom vocabulary is mail-client names (Gmail, Thunderbird, Outlook, Apple Mail) and phrases such as "new threads" or "replies not threading". People who search by symptom land on the README. The other surfaces stay technical.
+
+Do not add symptom vocabulary to the GitHub About field, the Docker Hub description, or other surfaces. On those surfaces, use only the core technical keywords: Postfix, milter, email threading, Message-ID, AWS SES. If a change needs a mail-client name outside the Symptoms section, ask the user first.
 
 ## Versioning and releases
 
